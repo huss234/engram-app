@@ -4092,9 +4092,11 @@ const AnkiIO = (() => {
     const o = { withSched: true, updateNotes: 'newer', updateNotetypes: 'newer', updateCards: true, updatePresets: false, ...opts };
     const stats = { notesAdded: 0, notesUpdated: 0, notesSkipped: 0, cardsAdded: 0, cardsUpdated: 0, revlog: 0, media: 0, notetypesAdded: 0, notetypesUpdated: 0, decksAdded: 0, presetsAdded: 0, conflicts: 0 };
     const fresh = Col.notes.size === 0;
-    /* adopt the source collection's clock when ours is empty, so due days line up exactly */
+    /* adopt the source collection's day settings when ours is empty. The creation day (crt) is kept:
+       it is shared with other devices through sync's meta.json, and changing it here would leave
+       every synced device counting the imported due days from a different day. dayShift below
+       converts the file's due days to ours instead. */
     if (fresh && o.withSched) {
-      Col.col.crt = snap.col.crt;
       for (const k of ['rollover', 'creationOffset', 'fsrs', 'collapseTime', 'newCardsIgnoreReviewLimit', 'applyAllParentLimits', 'dayLearnFirst', 'estTimes', 'dueCounts', 'timeLim', 'sortType', 'sortBackwards']) if (snap.conf[k] !== undefined && snap.conf[k] !== null) Col.conf[k] = snap.conf[k];
       if (snap.conf.creationOffset === undefined || snap.conf.creationOffset === null) delete Col.conf.creationOffset;
     }
