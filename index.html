@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- v1.1 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -4494,7 +4493,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.4' };
+const APP = { name: 'Engram', version: '2.1.5' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -7580,6 +7579,18 @@ function li({ icon, lead, t1, t2 = '', act = '', data = {}, trail = '', cls = ''
 function segHtml(name, options, value) {
   return `<div class="seg" data-seg="${name}">${options.map(([v, l]) => `<button type="button" data-v="${esc(v)}" aria-pressed="${String(v) === String(value)}">${ic('check')}${esc(l)}</button>`).join('')}</div>`;
 }
+/* a tap rebuilds the page, so a rebuilt control starts in its old state and then switches, letting its transitions play */
+function replayPressed(host, sel, from, press) {
+  const bs = [...host.querySelectorAll(sel)], key = b => b.dataset.v ?? b.dataset.k, hit = bs.find(b => b.getAttribute('aria-pressed') === 'true');
+  const els = bs.flatMap(b => [b, ...b.querySelectorAll('*')]);
+  els.forEach(e => e.style.transition = 'none');
+  bs.forEach(b => b.setAttribute('aria-pressed', key(b) === String(from)));
+  if (hit && !reduced()) Object.assign(hit.style, press);
+  void host.offsetWidth;
+  els.forEach(e => e.style.transition = '');
+  bs.forEach(b => b.setAttribute('aria-pressed', b === hit));
+  if (hit) for (const k in press) hit.style[k] = '';
+}
 function selectHtml(attrs, options, value) {
   return `<select ${attrs}>${options.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === String(value) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 }
@@ -9826,7 +9837,7 @@ function galFill(img) {
 function galWireLazy(root) { root.querySelectorAll('img.gth:not([src])').forEach(i => { if (GalLazy) GalLazy.observe(i); else galFill(i); }); }
 
 /* ---------------- gallery UI: shared pieces ---------------- */
-const GalUI = { q: '', chip: '', limit: 300, sel: new Set(), selecting: false, suppress: false, lists: new Map(), tok: 0, names: [] };
+const GalUI = { q: '', chip: '', chipFrom: null, chipScroll: 0, limit: 300, sel: new Set(), selecting: false, suppress: false, lists: new Map(), tok: 0, names: [] };
 function galListTok(names) {
   const t = 'g' + (++GalUI.tok); GalUI.lists.set(t, names);
   while (GalUI.lists.size > 24) GalUI.lists.delete(GalUI.lists.keys().next().value);
@@ -9938,6 +9949,9 @@ function renderGallery(el) {
   galWireHold(sc, st, () => App.renderTab('gallery'));
   galWirePinch(sc);
   galWireLazy(el);
+  const row = el.querySelector(':scope > .chips.scrollx');
+  if (row && st.chipFrom != null) { row.scrollLeft = st.chipScroll; replayPressed(row, '.chip', st.chipFrom, { borderRadius: '16px' }); }
+  st.chipFrom = null;
 }
 function galHomeBody() {
   const st = GalUI, items = Gal.items;
@@ -10482,7 +10496,7 @@ const GAL_ACT = {
     galView(list, list.indexOf(name), b.querySelector('img') || b);
   },
   'gal-set': (b) => openGallerySet(b.dataset.kind, b.dataset.key || ''),
-  'gal-chip': (b) => { const k = b.dataset.k; GalUI.chip = GalUI.chip === k && b.classList.contains('chip') ? '' : k; GalUI.limit = 300; App.renderTab('gallery'); const sc = $('#gal-scroll'); if (sc) sc.scrollTop = 0; },
+  'gal-chip': (b) => { const k = b.dataset.k, row = $('#tab-gallery > .chips.scrollx'); GalUI.chipFrom = GalUI.chip; GalUI.chipScroll = row ? row.scrollLeft : 0; GalUI.chip = GalUI.chip === k && b.classList.contains('chip') ? '' : k; GalUI.limit = 300; App.renderTab('gallery'); const sc = $('#gal-scroll'); if (sc) sc.scrollTop = 0; },
   'gal-clear': () => { GalUI.q = ''; GalUI.limit = 300; App.renderTab('gallery'); },
   'gal-more': (b) => { const c = galCtx(b); c.st.limit = (c.st.limit || 300) + 300; c.redraw(); },
   'gal-f': (b) => { const pg = pageOf(b); if (!pg) return; pg.state.f = b.dataset.k; pg.state.limit = 300; pg.refresh(); },
@@ -10988,19 +11002,6 @@ async function runExport(st) {
 
 /* ------------------------------------------------------------------- STATS */
 const StatsUI = { scope: 'all', scopeFrom: null, rangeFrom: null, rangeScroll: 0, animate: false, dir: 0, calMonth: 0 };
-/* a tap rebuilds the page, so a rebuilt control starts in its old state and then switches, letting its transitions play */
-function replayPressed(host, sel, from, press) {
-  const bs = [...host.querySelectorAll(sel)], hit = bs.find(b => b.getAttribute('aria-pressed') === 'true');
-  if (!hit) return;
-  const els = bs.flatMap(b => [b, ...b.querySelectorAll('*')]);
-  els.forEach(e => e.style.transition = 'none');
-  bs.forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(from)));
-  if (!reduced()) Object.assign(hit.style, press);
-  void host.offsetWidth;
-  els.forEach(e => e.style.transition = '');
-  bs.forEach(b => b.setAttribute('aria-pressed', b === hit));
-  for (const k in press) hit.style[k] = '';
-}
 function statsCards() {
   if (StatsUI.scope === 'all' || !Col.decks[Col.conf.curDeck]) return [...Col.cards.values()];
   const ids = new Set(Col.deckAndChildIds(Col.conf.curDeck)); return [...Col.cards.values()].filter(c => ids.has(c.did) || ids.has(c.odid));
