@@ -767,6 +767,14 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .sync-split .syncbtn .sl{overflow:hidden;text-overflow:ellipsis;line-height:20px}
 .sync-split .syncbtn.morph .sl{flex-shrink:0;text-overflow:clip}
 .sync-split .syncbtn .sl-old{position:absolute;pointer-events:none}
+.sync-split .syncbtn.st-syncing .sl{min-width:4ch;font-variant-numeric:tabular-nums}
+/* syncing: an M3 Expressive loading indicator, a shape that morphs and turns about a fixed center (keyframes built by syncLd) */
+.sync-ld{width:20px;height:20px;display:grid;place-items:center}
+.sync-ld svg{width:20px;height:20px;overflow:visible;fill:currentColor;animation:ldTurn 4550ms linear infinite}
+.sync-ld g{transform-origin:12px 12px;animation:ldStep 4550ms infinite}
+.sync-ld path{animation:ldMorph 4550ms infinite}
+@keyframes ldTurn{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sync-ld svg,.sync-ld g{animation:none}.sync-ld path{animation-duration:9100ms}}
 .sync-split .syncbtn:active{border-radius:12px}
 .sync-split.open .syncbtn{border-radius:20px 6px 6px 20px}
 .sync-split.open .syncbtn:active{border-radius:12px 6px 6px 12px}
@@ -4493,7 +4501,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.5' };
+const APP = { name: 'Engram', version: '2.1.6' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -6332,14 +6340,33 @@ const SyncUI = {
     });
   },
 };
+const SYNC_LD = [5, 4, 6, 1, 7, 2, 3];
+function syncLd() {
+  if (!document.getElementById('sync-ld-css')) {
+    const e = cssEase('xfs'), n = SYNC_LD.length, at = i => (i / n * 100).toFixed(3) + '%';
+    const morph = [...SYNC_LD, SYNC_LD[0]].map((k, i) => `${at(i)}{d:path("${shapePath(k, 24)}");animation-timing-function:${e}}`).join('');
+    const step = [...SYNC_LD, 0].map((k, i) => `${at(i)}{transform:rotate(${(i * 720 / n).toFixed(2)}deg);animation-timing-function:${e}}`).join('');
+    const st = document.createElement('style'); st.id = 'sync-ld-css'; st.textContent = `@keyframes ldMorph{${morph}}@keyframes ldStep{${step}}`;
+    document.head.appendChild(st);
+  }
+  return `<span class="ms sync-ld" aria-hidden="true"><svg viewBox="-1 -1 26 26"><g><path d="${shapePath(SYNC_LD[0], 24)}"/></g></svg></span>`;
+}
 function syncButton(where = 'bar') {
   const s = Sync.status || 'off', m = syncLabel(), bar = where === 'bar';
   const open = bar && SyncUI.isOpen(), attn = bar && SyncUI.attn();
   const more = bar && Sync.enabled() ? `<button class="sync-more" data-act="sync-info" aria-label="${attn ? 'Sync needs your attention: details' : 'Sync details'}" tabindex="${open ? 0 : -1}" aria-hidden="${!open}">${ic(attn ? 'priority_high' : 'expand_more')}</button>` : '';
-  return `<div class="sync-split st-${s} ${open ? 'open' : ''} ${attn ? 'attn' : ''}" data-sync="${where}"><button class="syncbtn st-${s}" data-act="sync-tap" aria-label="${esc(m[1])}. Tap to sync, hold for details">${ic(m[0], s === 'syncing' ? 'spin' : '')}<span class="sl">${esc(m[1])}</span></button>${more}</div>`;
+  return `<div class="sync-split st-${s} ${open ? 'open' : ''} ${attn ? 'attn' : ''}" data-sync="${where}"><button class="syncbtn st-${s}" data-act="sync-tap" aria-label="${esc(m[1])}. Tap to sync, hold for details">${s === 'syncing' ? syncLd() : ic(m[0])}<span class="sl">${esc(m[1])}</span></button>${more}</div>`;
 }
 const cssEase = k => (getComputedStyle(document.documentElement).getPropertyValue('--e-' + k) || '').trim() || 'cubic-bezier(.2,0,0,1)';
 const cssDur = k => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--d-' + k)) || 400;
+/* the share of the easing's run after which it stays past progress p (0–1) */
+function syncReach(p, easing) {
+  if (!(p > 0)) return 0;
+  const a = new Animation(new KeyframeEffect(null, null, { duration: 1000, easing }));
+  let last = 0;
+  for (let t = 0; t < 1000; t += 20) { a.currentTime = t; if (a.effect.getComputedTiming().progress < Math.min(p, 1)) last = t + 20; }
+  return last / 1000;
+}
 /* update a sync button in place, so its width and icon can move smoothly */
 function syncMorph(el) {
   const n = document.createElement('div'); n.innerHTML = syncButton(el.dataset.sync); const fresh = n.firstElementChild;
@@ -6350,24 +6377,36 @@ function syncMorph(el) {
   const t0 = ol ? ol.textContent : '', ox = ol ? ol.offsetLeft : 0, oy = ol ? ol.offsetTop : 0;
   el.className = fresh.className;
   op.className = np.className; op.setAttribute('aria-label', np.getAttribute('aria-label'));
-  if (op.innerHTML !== np.innerHTML) op.innerHTML = np.innerHTML;
+  const oi = op.querySelector('.ms'), ni0 = np.querySelector('.ms'), nl0 = np.querySelector('.sl');
+  /* swap only what changed, so a running indicator keeps turning through progress updates */
+  if (oi && ol && ni0 && nl0) { if (oi.outerHTML !== ni0.outerHTML) oi.replaceWith(ni0); if (ol.textContent !== nl0.textContent) ol.textContent = nl0.textContent; }
+  else if (op.innerHTML !== np.innerHTML) op.innerHTML = np.innerHTML;
   if (om) { for (const a of ['aria-label', 'tabindex', 'aria-hidden']) om.setAttribute(a, nm.getAttribute(a)); if (om.innerHTML !== nm.innerHTML) om.innerHTML = nm.innerHTML; }
   if (reduced() || !w0 || !el.isConnected) return;
   try {
-    const w1 = op.getBoundingClientRect().width, nl = op.querySelector('.sl');
+    const w1 = op.getBoundingClientRect().width, nl = op.querySelector('.sl:not(.sl-old)'), t1 = nl ? nl.textContent : '';
+    /* new words cross-fade, except a percentage ticking over, which just changes */
+    const swap = nl && t0 && t0 !== t1 && (s0 || !/\d/.test(t0) || !/\d/.test(t1));
+    /* no visible word may be cut by the pill's edge: a shrink waits while the old words fade,
+       and on a grow the new words arrive once the edge has passed them */
+    const fe = cssDur('fe'), dur = cssDur('xfs'), ease = cssEase('xfs'), hold = swap && w1 < w0 - 1 ? fe : 0;
+    let enter = swap ? fe / 2 : 0;
     if (Math.abs(w1 - w0) > 1) {
       /* while the width moves, the label keeps its full width instead of being cut to "…" */
       op.classList.add('morph');
-      const wa = op.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: cssDur('xfs'), easing: cssEase('xfs'), id: 'sync-w' });
+      const wa = op.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: dur, delay: hold, fill: 'backwards', easing: ease, id: 'sync-w' });
       const settle = () => { if (!op.getAnimations().some(a => a !== wa && a.id === 'sync-w' && a.playState === 'running')) op.classList.remove('morph'); };
       wa.onfinish = settle; wa.oncancel = settle;
+      if (w1 > w0 && nl && t0 !== t1) enter = Math.max(enter, syncReach((nl.offsetLeft + nl.offsetWidth - w0) / (w1 - w0), ease) * dur);
     }
-    /* new status: the old words roll up and fade, the new ones rise in as the width settles */
-    if (s0 && nl && t0 && t0 !== nl.textContent) {
+    if (swap) {
       const g = document.createElement('span'); g.className = 'sl sl-old'; g.textContent = t0; g.setAttribute('aria-hidden', 'true');
       g.style.left = ox + 'px'; g.style.top = oy + 'px'; op.appendChild(g);
-      g.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: cssDur('fe'), easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).onfinish = () => g.remove();
-      nl.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 0, transform: 'translateY(8px)', offset: .25 }, { opacity: 1, transform: 'none' }], { duration: cssDur('xfs'), easing: cssEase('de') });
+      g.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: fe, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).onfinish = () => g.remove();
+    }
+    if (nl && enter) {
+      nl.getAnimations().forEach(a => a.cancel());
+      nl.animate([{ opacity: 0, transform: swap ? 'translateY(8px)' : 'none' }, { opacity: 1, transform: 'none' }], { duration: cssDur('ds') * .6, delay: enter, fill: 'backwards', easing: cssEase('de') });
     }
     const ni = op.querySelector('.ms');
     if (ni && i0 !== ni.textContent) ni.animate([{ transform: 'scale(.3) rotate(-90deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: cssDur('xds'), easing: cssEase('xds') });
