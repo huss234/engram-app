@@ -8305,10 +8305,42 @@ function doUndo(pg) {
   if (c && c.queue >= 0) showCard(pg, c); else nextCard(pg);
 }
 /* ---- copy the whole note (every field, front and back) as Markdown ---- */
-function htmlToMarkdown(html) {
-  const d = document.createElement('div');
-  d.innerHTML = String(html || '').replace(/<!--[\s\S]*?-->/g, '');
-  d.querySelectorAll('script,style,meta,link,title,head').forEach(x => x.remove());
+/* The field is laid out under the note type's own CSS (inside a hidden shadow root), so what the CSS
+   adds is copied too: ::before/::after text (arrows, ✓/✕ marks, labels), spans shown as their own
+   line, and weight/italics set by class. Without CSS it falls back to the tags alone. */
+const MD_BLOCK_DISPLAY = /^(block|flex|grid|list-item|table|flow-root)$/;
+function mdStage(css) {
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-99999px;top:0;width:600px;visibility:hidden;pointer-events:none;contain:strict';
+  const root = host.attachShadow({ mode: 'open' });
+  const style = document.createElement('style'); style.textContent = css || '';
+  const card = document.createElement('div'); card.className = 'card';
+  root.append(style, card); document.body.appendChild(host);
+  return { card, done: () => host.remove() };
+}
+/* inert copy of the field: no scripts, no event handlers, no image loads */
+function mdFragment(html) {
+  const doc = new DOMParser().parseFromString('<body>' + String(html || '').replace(/<!--[\s\S]*?-->/g, '') + '</body>', 'text/html');
+  doc.querySelectorAll('script,style,meta,link,title,head,iframe,object,embed').forEach(x => x.remove());
+  for (const el of doc.body.querySelectorAll('*')) for (const a of [...el.attributes]) {
+    if (/^on/i.test(a.name)) el.removeAttribute(a.name);
+    else if (a.name === 'src' || a.name === 'srcset') { el.setAttribute('data-md-' + a.name, a.value); el.removeAttribute(a.name); }
+  }
+  return doc.body;
+}
+function pseudoText(el, which) {
+  const cs = getComputedStyle(el, which), c = cs.content;
+  if (!c || c === 'none' || c === 'normal') return '';
+  let t = ''; for (const m of c.matchAll(/"((?:[^"\\]|\\.)*)"/g)) t += m[1].replace(/\\(.)/g, '$1');
+  return t.replace(/[\t\r\n]+/g, ' ');
+}
+function htmlToMarkdown(html, stage = null) {
+  const d = mdFragment(html);
+  if (stage) stage.card.replaceChildren(...d.childNodes);
+  const top = stage ? stage.card : d;
+  const styled = !!stage;
+  const bold = el => { const w = getComputedStyle(el).fontWeight; return w === 'bold' || +w >= 600; };
+  const ital = el => getComputedStyle(el).fontStyle !== 'normal';
   const BLOCK = /^(DIV|P|H[1-6]|UL|OL|LI|TABLE|PRE|BLOCKQUOTE|HR|SECTION|ARTICLE|HEADER|FOOTER|FIGURE)$/;
   const wrap = (mark, inner) => { const m = inner.match(/^(\s*)([\s\S]*?)(\s*)$/); return m[2] ? m[1] + mark + m[2] + mark + m[3] : inner; };
   const inline = (n, ctx) => [...n.childNodes].map(c => node(c, ctx)).join('');
@@ -8319,8 +8351,8 @@ function htmlToMarkdown(html) {
     let inner;
     switch (tag) {
       case 'BR': return '\n';
-      case 'B': case 'STRONG': return wrap('**', inline(n, ctx));
-      case 'I': case 'EM': return wrap('*', inline(n, ctx));
+      case 'B': case 'STRONG': if (!styled) return wrap('**', inline(n, ctx)); break;
+      case 'I': case 'EM': if (!styled) return wrap('*', inline(n, ctx)); break;
       case 'S': case 'DEL': case 'STRIKE': return wrap('~~', inline(n, ctx));
       case 'U': case 'INS': return inline(n, ctx);
       case 'SUP': return `<sup>${inline(n, ctx)}</sup>`;
@@ -8328,7 +8360,7 @@ function htmlToMarkdown(html) {
       case 'CODE': return ctx.pre ? n.textContent : '`' + n.textContent + '`';
       case 'PRE': return '\n\n```\n' + n.textContent.replace(/\n+$/, '') + '\n```\n\n';
       case 'A': { inner = inline(n, ctx).trim(); const href = n.getAttribute('href') || ''; return href && !/^javascript:/i.test(href) ? `[${inner || href}](${href})` : inner; }
-      case 'IMG': { const src = n.getAttribute('src') || ''; return src ? `![${(n.getAttribute('alt') || '').replace(/[\[\]]/g, '')}](${src.replace(/ /g, '%20')})` : ''; }
+      case 'IMG': { const src = n.getAttribute('data-md-src') || ''; return src ? `![${(n.getAttribute('alt') || '').replace(/[\[\]]/g, '')}](${src.replace(/ /g, '%20')})` : ''; }
       case 'HR': return '\n\n---\n\n';
       case 'H1': case 'H2': case 'H3': case 'H4': case 'H5': case 'H6':
         return '\n\n' + '#'.repeat(Math.min(6, +tag[1] + 2)) + ' ' + inline(n, ctx).trim() + '\n\n';
@@ -8350,6 +8382,17 @@ function htmlToMarkdown(html) {
         return '\n\n' + [line(rows[0]), line(rows[0].map(() => '---')), ...rows.slice(1).map(line)].join('\n') + '\n\n';
       }
     }
+    if (styled) {
+      const isBlock = MD_BLOCK_DISPLAY.test(getComputedStyle(n).display) || (BLOCK.test(tag) && getComputedStyle(n).display !== 'inline');
+      inner = inline(n, ctx);
+      const p = n.parentElement;
+      if (bold(n) && !(p && bold(p))) inner = wrap('**', inner);
+      if (ital(n) && !(p && ital(p))) inner = wrap('*', inner);
+      /* a marker or label drawn before the text gets a space, as the card's own spacing shows one */
+      const pre = pseudoText(n, '::before');
+      inner = pre + (pre && !/\s$/.test(pre) && /^[^\s.,;:)]/.test(inner) ? ' ' : '') + inner + pseudoText(n, '::after');
+      return isBlock ? '\n' + inner + '\n' : inner;
+    }
     inner = BLOCK.test(tag) ? blocks(n, ctx) : inline(n, ctx);
     if (tag === 'SPAN' || tag === 'FONT') {
       if (/font-weight\s*:\s*(bold|[6-9]00)/.test(st)) inner = wrap('**', inner);
@@ -8359,7 +8402,7 @@ function htmlToMarkdown(html) {
     return BLOCK.test(tag) ? '\n' + inner + '\n' : inner;
   };
   const blocks = (n, ctx) => inline(n, ctx);
-  let md = inline(d, {});
+  let md = inline(top, {});
   md = md.replace(/\[sound:([^\]]+)\]/g, '(audio: $1)')
     .replace(/[ \t]+\n/g, '\n').replace(/\n (?=\S)/g, '\n')
     .replace(/\n{3,}/g, '\n\n').replace(/^\s+|\s+$/g, '');
@@ -8369,11 +8412,14 @@ function noteMarkdown(nid) {
   const n = Col.notes.get(nid); if (!n) return '';
   const m = Col.models[n.mid];
   const parts = [];
-  n.flds.forEach((v, i) => {
-    const body = htmlToMarkdown(v); if (!body) return;
-    const name = (m && m.flds[i] && m.flds[i].name) || `Field ${i + 1}`;
-    parts.push(`## ${name}\n\n${body}`);
-  });
+  const stage = mdStage(m && m.css);
+  try {
+    n.flds.forEach((v, i) => {
+      const body = htmlToMarkdown(v, stage); if (!body) return;
+      const name = (m && m.flds[i] && m.flds[i].name) || `Field ${i + 1}`;
+      parts.push(`## ${name}\n\n${body}`);
+    });
+  } finally { stage.done(); }
   return parts.join('\n\n') + '\n';
 }
 async function copyCardMarkdown(pg) {
