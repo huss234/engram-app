@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wdth,wght,ROND@6..144,25..151,1..1000,0..100&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,300..700,0..1,0&display=block">
 <style>
 /* ============================================================
    ENGRAM 1.0 — Material 3 Expressive design tokens
@@ -197,10 +197,10 @@ button{cursor:pointer}
 .ms{font-family:"Material Symbols Rounded";font-weight:normal;font-style:normal;font-size:24px;line-height:1;
   letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;
   font-feature-settings:"liga";-webkit-font-feature-settings:"liga";-webkit-font-smoothing:antialiased;
-  font-variation-settings:"FILL" 0,"wght" 400,"GRAD" 0,"opsz" 24;user-select:none;flex:none;
+  font-variation-settings:"FILL" var(--fill),"wght" var(--wght),"GRAD" 0,"opsz" 24;user-select:none;flex:none;
   width:1em;height:1em;overflow:hidden;
-  transition:font-variation-settings var(--d-de) var(--e-de)}
-.ms.fill{font-variation-settings:"FILL" 1,"wght" 400,"GRAD" 0,"opsz" 24}
+  transition:var(--ms-tr)}
+.ms.fill{--fill:1}
 .ms.sm{font-size:18px}
 .ms.lg{font-size:32px}
 
@@ -244,8 +244,8 @@ button{cursor:pointer}
 .rp{position:relative;overflow:hidden;isolation:isolate}
 .rp::before{content:"";position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity 150ms linear;pointer-events:none;border-radius:inherit;z-index:-1}
 @media (hover:hover){.rp:hover::before{opacity:.08}}
-.rp:active::before{opacity:.12}
-.ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.16;transform:scale(0);pointer-events:none;z-index:-1;
+.rp:is(:active,.is-down)::before{opacity:.12}
+.ripple{position:absolute;border-radius:50%;background:radial-gradient(closest-side,currentColor 62%,transparent);opacity:.16;transform:scale(0);pointer-events:none;z-index:-1;
   animation:ripple 450ms cubic-bezier(.2,0,0,1) forwards}
 .ripple.out{animation:rippleOut 300ms linear forwards}
 @keyframes ripple{to{transform:scale(1)}}
@@ -255,7 +255,7 @@ button{cursor:pointer}
   font-size:calc(14px*var(--ts));font-weight:550;letter-spacing:.007em;white-space:nowrap;background:var(--primary);color:var(--on-primary);
   transition:border-radius var(--d-xfs) var(--e-xfs),background-color var(--d-de) var(--e-de),transform var(--d-xfs) var(--e-xfs)}
 .btn .ms{font-size:20px}
-.btn:active{border-radius:10px}
+.btn:is(:active,.is-down){border-radius:10px}
 .btn.tonal{background:var(--secondary-container);color:var(--on-secondary-container)}
 .btn.tertiary{background:var(--tertiary-container);color:var(--on-tertiary-container)}
 .btn.outlined{background:transparent;color:var(--on-surface-variant);box-shadow:inset 0 0 0 1px var(--outline-variant)}
@@ -263,19 +263,19 @@ button{cursor:pointer}
 .btn.danger{background:var(--error);color:var(--on-error)}
 .btn.text.danger{background:transparent;color:var(--error)}
 .btn.m{height:56px;padding:0 24px;border-radius:28px;font-size:calc(16px*var(--ts))}
-.btn.m:active{border-radius:16px}
+.btn.m:is(:active,.is-down){border-radius:16px}
 .btn.l{height:72px;padding:0 32px;border-radius:36px;font-size:calc(18px*var(--ts));gap:12px}
 .btn.l .ms{font-size:28px}
-.btn.l:active{border-radius:20px}
+.btn.l:is(:active,.is-down){border-radius:20px}
 .btn.block{display:flex;width:100%}
 .btn:disabled{background:color-mix(in oklab,var(--on-surface) 10%,transparent);color:color-mix(in oklab,var(--on-surface) 38%,transparent);box-shadow:none;cursor:default}
 .ib{width:48px;height:48px;border:0;background:transparent;border-radius:50%;display:inline-grid;place-items:center;color:var(--on-surface-variant);flex:none;
   transition:border-radius var(--d-xfs) var(--e-xfs)}
-.ib:active{border-radius:14px}
+.ib:is(:active,.is-down){border-radius:14px}
 .ib.tonal{background:var(--secondary-container);color:var(--on-secondary-container);width:40px;height:40px;margin:4px}
 .ib.filled{background:var(--primary);color:var(--on-primary);width:40px;height:40px;margin:4px}
 .ib.on{color:var(--primary)}
-.ib.on .ms{font-variation-settings:"FILL" 1,"wght" 400,"GRAD" 0,"opsz" 24}
+.ib.on .ms{--fill:1}
 
 /* connected button group (segmented) */
 .seg{display:flex;gap:2px;padding:0}
@@ -285,9 +285,9 @@ button{cursor:pointer}
 .seg>button:first-child{border-radius:20px 8px 8px 20px}
 .seg>button:last-child{border-radius:8px 20px 20px 8px}
 .seg>button[aria-pressed="true"]{background:var(--secondary-container);color:var(--on-secondary-container);border-radius:20px}
-.seg>button .ms{font-size:18px;width:0;opacity:0;transition:width var(--d-fs) var(--e-fs),opacity var(--d-fe) linear}
+.seg>button .ms{font-size:18px;width:0;opacity:0;transition:width var(--d-fs) var(--e-fs),opacity var(--d-fe) linear,var(--ms-tr)}
 .seg>button[aria-pressed="true"] .ms{width:18px;opacity:1}
-.seg>button:active{flex-grow:1.15}
+.seg>button:is(:active,.is-down){flex-grow:1.15}
 
 /* ---------- FAB + FAB menu ---------- */
 .fab{position:absolute;right:16px;bottom:16px;z-index:5;height:56px;min-width:56px;padding:0 20px 0 16px;border:0;border-radius:16px;
@@ -297,16 +297,16 @@ button{cursor:pointer}
 .fab .lbl{transition:opacity var(--d-fe) linear,max-width var(--d-xfs) var(--e-xfs);max-width:200px;overflow:hidden;white-space:nowrap}
 .fab.shrink{padding:0 16px}
 .fab.shrink .lbl{max-width:0;opacity:0}
-.fab:active{border-radius:22px}
+.fab:is(:active,.is-down){border-radius:22px}
 .fab.open{background:var(--primary);color:var(--on-primary);border-radius:28px;padding:0 16px}
 .fab.open .lbl{max-width:0;opacity:0}
-.fab .ms{transition:transform var(--d-xds) var(--e-xds)}
+.fab .ms{transition:transform var(--d-xds) var(--e-xds),var(--ms-tr)}
 .fab.open .ms{transform:rotate(90deg)}
 .fab-menu{position:absolute;right:16px;bottom:84px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:6;pointer-events:none}
 .fab-menu button{pointer-events:auto;height:56px;border:0;border-radius:28px;padding:0 24px 0 20px;display:flex;align-items:center;gap:12px;
   background:var(--primary-container);color:var(--on-primary-container);font-size:calc(16px*var(--ts));font-weight:550;box-shadow:var(--shadow);
   transform-origin:right center;animation:fabItem var(--d-xds) var(--e-xds) both}
-.fab-menu button:active{border-radius:16px}
+.fab-menu button:is(:active,.is-down){border-radius:16px}
 @keyframes fabItem{from{opacity:0;transform:translateY(24px) scale(.6)}to{opacity:1;transform:none}}
 .fab-scrim{position:absolute;inset:0;z-index:4;background:color-mix(in oklab,var(--bg) 70%,transparent);animation:fade var(--d-de) linear both}
 @keyframes fade{from{opacity:0}}
@@ -321,7 +321,7 @@ button{cursor:pointer}
 .nav-i[aria-current="page"]{color:var(--on-surface);font-weight:700}
 .nav-i[aria-current="page"] .ind{color:var(--on-secondary-container)}
 .nav-i[aria-current="page"] .ind::after{transform:none;opacity:1}
-.nav-i[aria-current="page"] .ms{font-variation-settings:"FILL" 1,"wght" 400,"GRAD" 0,"opsz" 24}
+.nav-i[aria-current="page"] .ms{--fill:1}
 .nav-i .badge{position:absolute;top:0;left:calc(50% + 4px);white-space:nowrap;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);
   font-size:11px;font-weight:600;line-height:16px;text-align:center}
 
@@ -335,7 +335,7 @@ button{cursor:pointer}
 .li.tall{min-height:76px}
 .group>.li:first-child,.group>.li.first{border-top-left-radius:20px;border-top-right-radius:20px}
 .group>.li:last-child,.group>.li.last{border-bottom-left-radius:20px;border-bottom-right-radius:20px}
-.li:active{border-radius:20px}
+.li:is(:active,.is-down){border-radius:20px}
 .li .lead{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--primary-container);color:var(--on-primary-container)}
 .li .lead.plain{background:transparent;color:var(--on-surface-variant)}
 .li .lead .ms{font-size:22px}
@@ -354,11 +354,11 @@ button{cursor:pointer}
   transition:background-color var(--d-de) var(--e-de),border-color var(--d-de) var(--e-de)}
 .sw::after{content:"";position:absolute;top:50%;left:6px;width:16px;height:16px;margin-top:-8px;border-radius:50%;background:var(--outline);
   transition:transform var(--d-xfs) var(--e-xfs),width var(--d-xfs) var(--e-xfs),height var(--d-xfs) var(--e-xfs),margin var(--d-xfs) var(--e-xfs),background-color var(--d-de) linear}
-.sw:active::after{width:28px;height:28px;margin-top:-14px;margin-left:-4px}
+.sw:is(:active,.is-down)::after{width:28px;height:28px;margin-top:-14px;margin-left:-4px}
 .sw[aria-checked="true"]{background:var(--primary);border-color:var(--primary)}
 .sw[aria-checked="true"]::after{transform:translateX(18px);width:24px;height:24px;margin-top:-12px;margin-left:-2px;background:var(--on-primary)}
-.sw[aria-checked="true"]:active::after{width:28px;height:28px;margin-top:-14px;margin-left:-4px}
-.sw .ms{position:absolute;top:50%;left:25px;margin-top:-8px;font-size:16px;color:var(--on-primary-container);z-index:1;opacity:0;transition:opacity var(--d-fe) linear}
+.sw[aria-checked="true"]:is(:active,.is-down)::after{width:28px;height:28px;margin-top:-14px;margin-left:-4px}
+.sw .ms{position:absolute;top:50%;left:25px;margin-top:-8px;font-size:16px;color:var(--on-primary-container);z-index:1;opacity:0;transition:opacity var(--d-fe) linear,var(--ms-tr)}
 .sw[aria-checked="true"] .ms{opacity:1}
 
 /* ---------- slider (expressive: tall track, bar handle) ---------- */
@@ -382,8 +382,8 @@ input[type=range].rng::-moz-range-thumb{width:4px;height:44px;border:0;border-ra
 .chip{height:32px;border-radius:8px;border:0;box-shadow:inset 0 0 0 1px var(--outline-variant);background:transparent;color:var(--on-surface-variant);
   display:inline-flex;align-items:center;gap:6px;padding:0 14px;font-size:calc(14px*var(--ts));font-weight:550;white-space:nowrap;flex:none;
   transition:background-color var(--d-de) var(--e-de),padding var(--d-fs) var(--e-fs),border-radius var(--d-xfs) var(--e-xfs)}
-.chip:active{border-radius:16px}
-.chip .ck{font-size:18px;width:0;opacity:0;margin-left:-6px;transition:width var(--d-fs) var(--e-fs),opacity var(--d-fe) linear,margin var(--d-fs) var(--e-fs)}
+.chip:is(:active,.is-down){border-radius:16px}
+.chip .ck{font-size:18px;width:0;opacity:0;margin-left:-6px;transition:width var(--d-fs) var(--e-fs),opacity var(--d-fe) linear,margin var(--d-fs) var(--e-fs),var(--ms-tr)}
 .chip[aria-pressed="true"]{background:var(--secondary-container);color:var(--on-secondary-container);box-shadow:none;padding-left:8px}
 .chip[aria-pressed="true"] .ck{width:18px;opacity:1;margin-left:0}
 .chip .n{opacity:.7;font-weight:500}
@@ -439,7 +439,7 @@ input[type=range].rng::-moz-range-thumb{width:4px;height:44px;border:0;border-ra
 .hscroll::-webkit-scrollbar{display:none}
 .systile{flex:none;width:132px;scroll-snap-align:start;border:0;text-align:left;background:var(--item);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:8px;color:var(--on-surface);
   transition:border-radius var(--d-xfs) var(--e-xfs)}
-.systile:active{border-radius:28px}
+.systile:is(:active,.is-down){border-radius:28px}
 .systile .ico{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:oklch(0.92 0.05 var(--c));color:oklch(0.40 0.10 var(--c))}
 :root[data-theme="dark"] .systile .ico{background:oklch(0.35 0.06 var(--c));color:oklch(0.9 0.06 var(--c))}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .systile .ico{background:oklch(0.35 0.06 var(--c));color:oklch(0.9 0.06 var(--c))}}
@@ -565,7 +565,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
   transition:flex-grow var(--d-xfs) var(--e-xfs),border-radius var(--d-xfs) var(--e-xfs)}
 .grades button:first-child{border-radius:28px 10px 10px 28px}
 .grades button:last-child{border-radius:10px 28px 28px 10px}
-.grades button:active{flex-grow:1.3;border-radius:28px}
+.grades button:is(:active,.is-down){flex-grow:1.3;border-radius:28px}
 .grades .iv{font-size:calc(12px*var(--ts));font-weight:500;opacity:.8;font-variant-numeric:tabular-nums}
 .g1{background:var(--g-again);color:var(--on-g-again)} .g2{background:var(--g-hard);color:var(--on-g-hard)}
 .g3{background:var(--g-good);color:var(--on-g-good)} .g4{background:var(--g-easy);color:var(--on-g-easy)}
@@ -613,7 +613,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .swatch i:nth-child(2){background:oklch(0.86 0.05 var(--sh))}
 .swatch i:nth-child(3){background:oklch(0.78 0.09 calc(var(--sh) + 70))}
 .swatch .ms{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);width:28px;height:28px;border-radius:50%;background:oklch(0.35 0.1 var(--sh));color:#fff;
-  display:grid;place-items:center;font-size:18px;transition:transform var(--d-xfs) var(--e-xfs)}
+  display:grid;place-items:center;font-size:18px;transition:transform var(--d-xfs) var(--e-xfs),var(--ms-tr)}
 .swatch[aria-pressed="true"]{border-radius:18px}
 .swatch[aria-pressed="true"] .ms{transform:translate(-50%,-50%) scale(1)}
 
@@ -634,7 +634,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .syncpill{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px 0 8px;border-radius:14px;background:var(--sch);color:var(--on-surface-variant);font-size:12px;font-weight:600}
 .syncpill .ms{font-size:16px}
 .syncbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 10px;border:0;border-radius:16px;background:var(--sch);color:var(--on-surface-variant);font:600 12px/1 var(--font);white-space:nowrap;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;max-width:52vw;overflow:hidden;text-overflow:ellipsis}
-.syncbtn .ms{font-size:18px}.syncbtn:active{border-radius:10px}
+.syncbtn .ms{font-size:18px}.syncbtn:is(:active,.is-down){border-radius:10px}
 .syncbtn.st-saved{background:var(--primary-container);color:var(--on-primary-container)}
 .syncbtn.st-waiting,.syncbtn.st-syncing{background:var(--tertiary-container);color:var(--on-tertiary-container)}
 .syncbtn.st-error,.syncbtn.st-auth,.syncbtn.st-choice{background:var(--error-container);color:var(--on-error-container)}
@@ -656,7 +656,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 /* ---------- Engram 2 additions ---------- */
 .decktree .li.deckrow{gap:10px;padding:10px 4px 10px calc(8px + var(--depth,0) * 22px);min-height:64px;cursor:pointer}
 .deckrow .tog{width:36px;height:36px;color:var(--on-surface-variant)}
-.deckrow .tog .ms{transition:transform var(--d-xfs) var(--e-xfs)}
+.deckrow .tog .ms{transition:transform var(--d-xfs) var(--e-xfs),var(--ms-tr)}
 .deckrow .tog.open .ms{transform:rotate(90deg)}
 .deckrow .tog-sp{width:36px;flex:none}
 .deckrow .shp{width:40px;height:40px}.deckrow .shp .ms{font-size:20px}
@@ -697,7 +697,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .ib.pin{width:32px;height:32px;color:var(--on-surface-variant);opacity:.6}
 .ib.pin .ms{font-size:18px}
 .ib.pin.on{color:var(--primary);opacity:1}
-.ib.pin.on .ms{font-variation-settings:"FILL" 1,"wght" 400,"GRAD" 0,"opsz" 24}
+.ib.pin.on .ms{--fill:1}
 .edf .dupe{color:var(--error)}
 .tagbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-radius:16px;background:var(--item);padding:8px 10px;box-shadow:inset 0 0 0 1px var(--outline-variant)}
 .tagbox input{flex:1;min-width:100px;border:0;background:transparent;outline:0;padding:6px;font-size:calc(15px*var(--ts));color:var(--on-surface);box-shadow:none}
@@ -768,21 +768,21 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .sync-split .syncbtn .sl{overflow:hidden;text-overflow:ellipsis;line-height:20px}
 .sync-split .syncbtn.morph .sl{flex-shrink:0;text-overflow:clip}
 .sync-split .syncbtn .sl-old{position:absolute;pointer-events:none}
-.sync-split .syncbtn:active{border-radius:12px}
+.sync-split .syncbtn:is(:active,.is-down){border-radius:12px}
 .sync-split.open .syncbtn{border-radius:20px 6px 6px 20px}
-.sync-split.open .syncbtn:active{border-radius:12px 6px 6px 12px}
+.sync-split.open .syncbtn:is(:active,.is-down){border-radius:12px 6px 6px 12px}
 .sync-more{width:0;height:40px;margin-left:-2px;padding:0;border:0;border-radius:6px 20px 20px 6px;display:grid;place-items:center;overflow:hidden;opacity:0;pointer-events:none;
   background:var(--sch);color:var(--on-surface-variant);flex:none;
   transition:width var(--d-xfs) var(--e-xfs),margin var(--d-xfs) var(--e-xfs),opacity var(--d-fe) linear,border-radius var(--d-xfs) var(--e-xfs),background-color var(--d-de) var(--e-de),color var(--d-de) var(--e-de)}
 .sync-split.open .sync-more{width:40px;margin-left:0;opacity:1;pointer-events:auto}
-.sync-more .ms{font-size:20px;transform:scale(.2) rotate(-150deg);transition:transform var(--d-xds) var(--e-xds)}
+.sync-more .ms{font-size:20px;transform:scale(.2) rotate(-150deg);transition:transform var(--d-xds) var(--e-xds),var(--ms-tr)}
 .sync-split.open .sync-more .ms{transform:none}
-.sync-more:active{border-radius:20px}
+.sync-more:is(:active,.is-down){border-radius:20px}
 .sync-split.st-saved>button{background:var(--primary-container);color:var(--on-primary-container)}
 .sync-split.st-waiting>button,.sync-split.st-syncing>button{background:var(--tertiary-container);color:var(--on-tertiary-container)}
 .sync-split.st-error>button,.sync-split.st-auth>button,.sync-split.st-choice>button{background:var(--error-container);color:var(--on-error-container)}
 .sync-split.st-rate>button{background:var(--secondary-container);color:var(--on-secondary-container)}
-.sync-split.attn .sync-more .ms{font-variation-settings:"FILL" 1,"wght" 600,"GRAD" 0,"opsz" 24}
+.sync-split.attn .sync-more .ms{--fill:1;--wght:600}
 
 /* overflow menu: unfolds from the button that opened it */
 .menu{min-width:224px;border-radius:20px;padding:6px;animation:menuIn var(--d-ds) var(--e-ds) backwards;transform-origin:top right}
@@ -796,9 +796,9 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .menu.out{animation:menuOut 150ms cubic-bezier(.3,0,1,1) both}
 @keyframes menuOut{to{opacity:0;transform:scale(.96)}}
 .menu button{border-radius:14px;transition:border-radius var(--d-fs) var(--e-fs)}
-.menu button:active{border-radius:20px}
+.menu button:is(:active,.is-down){border-radius:20px}
 .menu button.tog{padding-right:6px}
-.menu button.tog>.ms:first-child{transition:transform var(--d-xds) var(--e-xds)}
+.menu button.tog>.ms:first-child{transition:transform var(--d-xds) var(--e-xds),var(--ms-tr)}
 .menu button.tog[aria-checked="true"]>.ms:first-child{transform:rotate(-25deg)}
 .menu button .lbl{flex:1;min-width:0}
 .menu .sw{display:inline-block;flex:none;transform:scale(.82);transform-origin:right center;pointer-events:none}
@@ -938,7 +938,7 @@ label.li{cursor:text}
   #app.in-settings .nav-i[data-nav][aria-current="page"]{color:var(--on-surface-variant);font-weight:550}
   #app.in-settings .nav-i[data-nav][aria-current="page"] .ind{color:inherit}
   #app.in-settings .nav-i[data-nav][aria-current="page"] .ind::after{transform:scaleX(.3);opacity:0}
-  #app.in-settings .nav-i[data-nav][aria-current="page"] .ms{font-variation-settings:"FILL" 0,"wght" 400,"GRAD" 0,"opsz" 24}
+  #app.in-settings .nav-i[data-nav][aria-current="page"] .ms{--fill:0}
   #tabs,#pages{position:absolute;top:0;bottom:0;right:0;left:var(--rail-w);flex:none;overflow:hidden}
   #snack{left:calc(var(--rail-w) + 12px)}
   .fab{right:24px;bottom:24px}
@@ -960,12 +960,12 @@ label.li{cursor:text}
   .page.study:not(.done) .st-counts{grid-column:2;grid-row:2;flex-wrap:wrap;padding:4px 16px 12px 8px}
   .page.study:not(.done) .st-bottom{grid-column:2;grid-row:3;display:flex;flex-direction:column;justify-content:flex-end;min-height:0;padding:0 16px 16px 8px}
   .page.study:not(.done) .st-bottom>.btn.l{height:auto;min-height:112px;flex-direction:column;gap:6px;white-space:normal;text-align:center;border-radius:32px}
-  .page.study:not(.done) .st-bottom>.btn.l:active{border-radius:20px}
+  .page.study:not(.done) .st-bottom>.btn.l:is(:active,.is-down){border-radius:20px}
   .page.study:not(.done) .grades{flex-direction:column;gap:4px}
   .page.study:not(.done) .grades button{flex:none;height:auto;min-height:clamp(64px,13vh,96px)}
   .page.study:not(.done) .grades button:first-child{border-radius:28px 28px 10px 10px}
   .page.study:not(.done) .grades button:last-child{border-radius:10px 10px 28px 28px}
-  .page.study:not(.done) .grades button:active{flex-grow:0;border-radius:28px}
+  .page.study:not(.done) .grades button:is(:active,.is-down){flex-grow:0;border-radius:28px}
 
   /* card template editor: code and preview side by side */
   .tpwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
@@ -1012,8 +1012,8 @@ label.li{cursor:text}
   font-size:calc(15px*var(--ts));font-weight:600;color:var(--on-surface-variant);transition:color var(--d-de) var(--e-de)}
 .vsw button .ms{font-size:20px}
 .vsw button[aria-selected="true"]{color:var(--on-primary)}
-.vsw button[aria-selected="true"] .ms{font-variation-settings:"FILL" 1,"wght" 500,"GRAD" 0,"opsz" 24}
-.vsw:active .th{border-radius:14px}
+.vsw button[aria-selected="true"] .ms{--fill:1;--wght:500}
+.vsw:is(:active,.is-down) .th{border-radius:14px}
 .stx-frame{max-width:1320px;margin:0 auto}
 .stx-frame>.vsw{max-width:560px}
 .vx-r{animation:vxR var(--d-ds) var(--e-ds) both}.vx-l{animation:vxL var(--d-ds) var(--e-ds) both}
@@ -1059,7 +1059,7 @@ label.li{cursor:text}
 .li.ix-hl{min-height:0;padding:14px 16px;align-items:flex-start}
 .li.ix-hl .lead{background:var(--tertiary-container);color:var(--on-tertiary-container)}
 .li.ix-hl .tx{padding-top:7px;line-height:1.45}
-.li.ix-hl:active{border-radius:4px}
+.li.ix-hl:is(:active,.is-down){border-radius:4px}
 .group>.li.ix-hl:first-child{border-top-left-radius:20px;border-top-right-radius:20px}
 .group>.li.ix-hl:last-child{border-bottom-left-radius:20px;border-bottom-right-radius:20px}
 
@@ -1111,7 +1111,7 @@ label.li{cursor:text}
 
 /* decks */
 .li.ix-deck{align-items:center;gap:14px;cursor:default}
-.li.ix-deck:active{border-radius:4px}
+.li.ix-deck:is(:active,.is-down){border-radius:4px}
 .group>.li.ix-deck:first-child{border-top-left-radius:20px;border-top-right-radius:20px}
 .group>.li.ix-deck:last-child{border-bottom-left-radius:20px;border-bottom-right-radius:20px}
 .li.ix-deck .shp{width:40px;height:40px}.li.ix-deck .shp .ms{font-size:20px}
@@ -1145,7 +1145,7 @@ label.li{cursor:text}
 .ix-cal-g .d.today.goal .gs{filter:drop-shadow(0 0 0 var(--tertiary))}
 .ix-cal-g .d.today.goal::before{content:"";position:absolute;inset:-5px;border-radius:50%;box-shadow:0 0 0 2px var(--tertiary)}
 .ix-cal-g .d:not(.fut):not(.pad){cursor:pointer;transition:transform var(--d-xfs) var(--e-xfs)}
-.ix-cal-g .d:not(.fut):not(.pad):active{transform:scale(.88)}
+.ix-cal-g .d:not(.fut):not(.pad):is(:active,.is-down){transform:scale(.88)}
 .ix-cal-key{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;align-items:center}
 .ix-cal-key span{display:inline-flex;align-items:center;gap:6px}
 .ix-cal-key span:last-child{margin-left:auto}
@@ -1199,7 +1199,7 @@ label.li{cursor:text}
 /* ---------- home: momentum widget ---------- */
 .mo{margin:8px 16px 0;padding:16px 16px 14px;border-radius:28px;background:var(--item);display:flex;flex-direction:column;gap:14px;cursor:pointer;
   transition:border-radius var(--d-xfs) var(--e-xfs)}
-.mo:active{border-radius:18px}
+.mo:is(:active,.is-down){border-radius:18px}
 .mo-top{display:flex;align-items:center;gap:12px}
 .mo-top>.ms{flex:none}
 .mo-flame{width:44px;height:44px}.mo-flame .ms{font-size:22px}
@@ -1235,7 +1235,7 @@ label.li{cursor:text}
   background:var(--secondary-container);color:var(--on-secondary-container);font-size:calc(13px*var(--ts));font-weight:650;font-variant-numeric:tabular-nums;
   transition:border-radius var(--d-xfs) var(--e-xfs),background-color var(--d-de) var(--e-de),color var(--d-de) var(--e-de)}
 .st-clock .ms{font-size:18px}
-.st-clock:active{border-radius:10px}
+.st-clock:is(:active,.is-down){border-radius:10px}
 .st-clock.paused{background:var(--primary);color:var(--on-primary)}
 .st-clock.idle{background:var(--sch);color:var(--on-surface-variant)}
 .st-pause{position:absolute;inset:0;z-index:5;border-radius:32px;display:grid;place-items:center;padding:24px;
@@ -1289,8 +1289,8 @@ label.li{cursor:text}
   font:600 calc(12px*var(--ts))/1 var(--font);white-space:nowrap;min-width:0;flex:none;
   transition:border-radius var(--d-xfs) var(--e-xfs),background-color var(--d-de) var(--e-de)}
 button.stc{cursor:pointer}
-button.stc:active{border-radius:8px}
-.stc .ms{font-size:16px;font-variation-settings:"FILL" 1,"wght" 500,"GRAD" 0,"opsz" 20}
+button.stc:is(:active,.is-down){border-radius:8px}
+.stc .ms{font-size:16px;--fill:1;--wght:500}
 .stc.deck{flex:0 1 auto;max-width:38%;padding:0 10px 0 6px;background:transparent}
 .stc.deck span:last-child{overflow:hidden;text-overflow:ellipsis}
 .stc.flag{color:var(--fc);background:color-mix(in oklab,var(--fc) 16%,var(--sch));padding:0 6px}
@@ -1338,10 +1338,10 @@ button.stc:active{border-radius:8px}
 .menu .mtiles button{flex:1;min-width:0;height:auto;flex-direction:column;justify-content:center;gap:4px;padding:12px 2px 9px;border-radius:24px;background:var(--schh);
   text-align:center;font-size:calc(11px*var(--ts));font-weight:600;line-height:1.15;color:var(--on-surface-variant);
   transition:border-radius var(--d-xfs) var(--e-xfs),background-color var(--d-de) var(--e-de),color var(--d-de) var(--e-de)}
-.menu .mtiles button .ms{font-size:22px;color:inherit;transition:transform var(--d-xds) var(--e-xds),font-variation-settings var(--d-de) linear}
+.menu .mtiles button .ms{font-size:22px;color:inherit;transition:transform var(--d-xds) var(--e-xds),font-variation-settings var(--d-de) linear,var(--ms-tr)}
 .menu .mtiles button[aria-pressed="true"]{border-radius:14px;background:var(--primary-container);color:var(--on-primary-container)}
-.menu .mtiles button[aria-pressed="true"] .ms{font-variation-settings:"FILL" 1,"wght" 500,"GRAD" 0,"opsz" 24;transform:scale(1.08)}
-.menu .mtiles button:active{border-radius:10px}
+.menu .mtiles button[aria-pressed="true"] .ms{--fill:1;--wght:500;transform:scale(1.08)}
+.menu .mtiles button:is(:active,.is-down){border-radius:10px}
 .menu .mtiles button.dim{opacity:.6}
 .menu .mtiles + hr{margin-top:6px}
 
@@ -1368,8 +1368,8 @@ button.stc:active{border-radius:8px}
 @container (min-width:1100px){.gtiles{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .gtile{border:0;padding:6px;background:var(--item);border-radius:24px;display:flex;flex-direction:column;gap:8px;text-align:left;color:var(--on-surface);min-width:0;
   transition:border-radius var(--d-xfs) var(--e-xfs)}
-.gtile:active{border-radius:32px}
-.gtile:active .gmos{border-radius:26px}
+.gtile:is(:active,.is-down){border-radius:32px}
+.gtile:is(:active,.is-down) .gmos{border-radius:26px}
 .gmos{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:1;border-radius:18px;overflow:hidden;
   background:color-mix(in oklab,oklch(0.7 0.12 var(--c,265)) 22%,var(--sch));transition:border-radius var(--d-xfs) var(--e-xfs)}
 .gmos.n0{display:block}
@@ -1391,7 +1391,7 @@ button.stc:active{border-radius:8px}
 .gcar-i{flex:none;position:relative;width:clamp(120px,32cqw,188px);height:clamp(168px,44cqw,236px);padding:0;border:0;border-radius:28px;overflow:hidden;
   background:var(--sch);scroll-snap-align:start;transition:border-radius var(--d-xfs) var(--e-xfs),transform var(--d-xfs) var(--e-xfs)}
 .gcar-i:first-child{width:clamp(200px,56cqw,340px)}
-.gcar-i:active{border-radius:20px;transform:scale(.97)}
+.gcar-i:is(:active,.is-down){border-radius:20px;transform:scale(.97)}
 .gcar-i .lbl{position:absolute;left:0;right:0;bottom:0;padding:28px 14px 12px;text-align:left;color:#fff;font-size:calc(13px*var(--ts));font-weight:550;line-height:1.3;
   background:linear-gradient(transparent,rgb(0 0 0 / .6));display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;opacity:0;transition:opacity var(--d-de) linear}
 .gcar-i.ld .lbl{opacity:1}
@@ -1416,7 +1416,7 @@ img.gth.in{opacity:1}
 @keyframes gRegrid{from{opacity:.4;transform:scale(.97)}}
 .gcell{position:relative;aspect-ratio:1;border:0;padding:0;margin:0;overflow:hidden;border-radius:6px;background:var(--sch);display:block;
   transition:border-radius var(--d-fs) var(--e-fs)}
-.gcell:active{border-radius:18px}
+.gcell:is(:active,.is-down){border-radius:18px}
 .gcell img.gth{transition:opacity var(--d-de) linear,transform var(--d-xfs) var(--e-xfs),border-radius var(--d-xfs) var(--e-xfs)}
 .gcell .goff{position:absolute;inset:0;margin:auto;font-size:22px;color:var(--on-surface-variant);opacity:0}
 .gcell.off .goff{opacity:.6}
@@ -1471,7 +1471,7 @@ img.gth.in{opacity:1}
 .gv-tb .ib.pop .ms{animation:pop var(--d-xds) var(--e-xds)}
 .gv-id{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 18px 0 14px;border:0;border-radius:24px;background:oklch(0.86 0.07 var(--h));color:oklch(0.25 0.06 var(--h));
   font-size:calc(15px*var(--ts));font-weight:650;letter-spacing:.03em;font-variant-numeric:tabular-nums;transition:border-radius var(--d-xfs) var(--e-xfs)}
-.gv-id:active{border-radius:14px}
+.gv-id:is(:active,.is-down){border-radius:14px}
 .gv-tb .ib{position:relative}
 .gv-badge{position:absolute;top:6px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:oklch(0.86 0.07 var(--h));color:oklch(0.25 0.06 var(--h));
   font-size:10px;font-weight:700;line-height:16px;text-align:center}
@@ -1491,6 +1491,235 @@ img.gth.in{opacity:1}
 }
 @media (orientation:landscape) and (min-width:900px) and (min-height:500px){
   #app:not(.has-pane) #tab-gallery{padding-left:max(0px,calc((100% - 1320px) / 2));padding-right:max(0px,calc((100% - 1320px) / 2))}
+}
+
+
+/* ============================================================
+   Living icons (M3 Expressive)
+   The icons you touch most are drawn from parts (see AV in the script), so
+   each one answers a tap with its own gesture: the bin lid lifts on its
+   hinge, the tick redraws, the gear turns one tooth, the pencil writes.
+   Pressing thickens the stroke, as the font's weight axis would; filled
+   states flood in through the same --fill value the font uses.
+   Every other icon is the font glyph, which answers with a weight swell.
+   ============================================================ */
+@property --fill{syntax:"<number>";inherits:true;initial-value:0}
+@property --wght{syntax:"<number>";inherits:true;initial-value:400}
+:root{
+  --ms-tr:--fill var(--d-ds) var(--e-ds),--wght var(--d-fs) var(--e-fs);
+  --m-std:cubic-bezier(.2,0,0,1);
+  --m-dec:cubic-bezier(.05,.7,.1,1);
+  --m-acc:cubic-bezier(.3,0,.8,.15);
+  --m-io:cubic-bezier(.45,0,.2,1);
+}
+.is-down .ms{--wght:560}
+.is-down .ms.fill,.is-down[aria-current="page"] .ms,.is-down[aria-pressed="true"] .ms{--wght:620}
+
+/* the drawn icon sits over its (now invisible) glyph, same box, same color */
+.ms[data-av]{overflow:visible;-webkit-text-fill-color:transparent}
+:where(.ms[data-av]){position:relative}
+.ms>.av{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;
+  fill:none;stroke:currentColor;stroke-width:calc(1.2px + var(--wght) * .002px);stroke-linecap:round;stroke-linejoin:round}
+.av *{transform-box:view-box}
+.av .f{fill:currentColor;fill-opacity:var(--fill)}
+.av .solid{fill:currentColor;stroke:none}
+.av .solid-s{fill:currentColor}
+.av [pathLength]{stroke-dasharray:1 2}
+.av .ink{opacity:0}
+
+/* one gesture per icon, started by data-go */
+.ms[data-go]:not([data-av]){animation:ms-swell 480ms var(--m-std)}
+@keyframes ms-swell{40%{--wght:640;--fill:.35}}
+.ms[data-swap]{animation:ms-in 320ms var(--m-dec) both}
+@keyframes ms-in{from{opacity:0;scale:.82;filter:blur(1.5px)}}
+
+/* add: the cross gathers in as it turns a quarter, then opens again */
+.av .xg{transform-origin:12px 12px}
+[data-av="add"][data-go] .xg{animation:av-turn 560ms var(--m-std)}
+[data-av="add"][data-go] .xa{animation:av-gather 560ms var(--m-io)}
+@keyframes av-turn{to{rotate:90deg}}
+@keyframes av-gather{45%{stroke-dasharray:.74 2}}
+.is-down [data-av="add"] .xa{stroke-dasharray:.86 2;transition:stroke-dasharray var(--d-fs) var(--e-fs)}
+/* close: the arms draw back to the centre and out */
+[data-av="close"][data-go] .xa{animation:av-pinch 440ms var(--m-io)}
+@keyframes av-pinch{40%{stroke-dasharray:.55 2}}
+
+/* check: the tick redraws, short arm first */
+[data-av="check"][data-go] .tick{animation:av-draw 460ms var(--m-dec) both}
+@keyframes av-draw{from{stroke-dashoffset:1}}
+@keyframes av-redraw{from{stroke-dashoffset:.6}}
+
+/* back: the arrow draws in its tail and steps back */
+.av .ab{transition:translate var(--d-fs) var(--e-fs)}
+[data-av="arrow_back"][data-go] .ab{animation:av-back 480ms var(--m-io)}
+[data-av="arrow_back"][data-go] .shaft{animation:av-shaft 480ms var(--m-io)}
+@keyframes av-back{38%{translate:-2.5px 0}}
+@keyframes av-shaft{38%{stroke-dasharray:.72 2}}
+.is-down [data-av="arrow_back"] .ab{translate:-.8px 0}
+
+/* chevrons lean the way they point */
+[data-av="chevron_right"][data-go] .chev{animation:av-lean-r 420ms var(--m-io)}
+[data-av="chevron_left"][data-go] .chev{animation:av-lean-l 420ms var(--m-io)}
+[data-av="expand_more"][data-go] .chev{animation:av-lean-d 420ms var(--m-io)}
+[data-av="expand_less"][data-go] .chev{animation:av-lean-u 420ms var(--m-io)}
+@keyframes av-lean-r{35%{translate:2.2px 0}}
+@keyframes av-lean-l{35%{translate:-2.2px 0}}
+@keyframes av-lean-d{35%{translate:0 2.2px}}
+@keyframes av-lean-u{35%{translate:0 -2.2px}}
+
+/* more: the three dots gather to the middle and part */
+[data-av="more_vert"][data-go] .dt1{animation:av-dot-d 480ms var(--m-io)}
+[data-av="more_vert"][data-go] .dt3{animation:av-dot-u 480ms var(--m-io)}
+[data-av="more_vert"][data-go] .dt2{animation:av-dot-m 480ms var(--m-io);transform-origin:12px 12px}
+@keyframes av-dot-d{40%{translate:0 2.2px}}
+@keyframes av-dot-u{40%{translate:0 -2.2px}}
+@keyframes av-dot-m{40%{scale:1.2}}
+
+/* play and pause fold into each other */
+.av .pp{transition:d var(--d-ds) var(--m-std)}
+[data-av="play_arrow"] .pp1{d:path("M9 6.8L17.1 12L17.1 12L9 17.3Z")}
+[data-av="play_arrow"] .pp2{d:path("M17.1 12L17.1 12L17.1 12L17.1 12Z")}
+[data-av="pause"] .pp1{d:path("M6 6L10 6L10 18L6 18Z")}
+[data-av="pause"] .pp2{d:path("M14 6L18 6L18 18L14 18Z")}
+[data-av="play_arrow"][data-go] .pp{animation:av-lean-r 420ms var(--m-io)}
+
+/* search: the lens refocuses while the handle draws back in */
+.av .lens{transform-origin:9.5px 9.5px}
+[data-av="search"][data-go] .lens{animation:av-focus 480ms var(--m-io)}
+[data-av="search"][data-go] .handle{animation:av-handle 480ms var(--m-io)}
+@keyframes av-focus{40%{scale:1.14}}
+@keyframes av-handle{40%{stroke-dasharray:.45 2}}
+
+/* delete: the lid lifts on its hinge and settles */
+.av .lid{transform-origin:19px 5px;transition:translate var(--d-fs) var(--e-fs),rotate var(--d-fs) var(--e-fs)}
+.is-down [data-av="delete"] .lid{translate:0 -.6px;rotate:-5deg}
+[data-av="delete"][data-go] .lid{animation:av-lid 620ms var(--m-std)}
+@keyframes av-lid{0%{animation-timing-function:var(--m-std)}35%{translate:0 -2px;rotate:-16deg;animation-timing-function:var(--m-dec)}}
+
+/* star: turns one point and the fill blooms from its heart */
+.av .star{transform-origin:12px 12.4px}
+[data-av="star"][data-go] .star{animation:av-star 680ms var(--m-std)}
+@keyframes av-star{0%{rotate:-72deg;fill-opacity:0}}
+
+/* info: the stem rises and the dot settles on top */
+.av .idot{transform-origin:12px 8px}
+[data-av="info"][data-go] .stem{animation:av-draw 380ms var(--m-dec) both}
+[data-av="info"][data-go] .idot{animation:av-idot 560ms var(--m-dec) both}
+@keyframes av-idot{0%,30%{translate:0 -3px;opacity:0}}
+
+/* edit: the pencil writes a short line that fades */
+.av .pen{transform-origin:5px 19px}
+[data-av="edit"][data-go] .pen{animation:av-write 720ms var(--m-io)}
+[data-av="edit"][data-go] .ink{animation:av-ink 720ms linear}
+@keyframes av-write{25%{translate:-.6px .6px;rotate:-5deg}65%{translate:2.6px .4px;rotate:3deg}}
+@keyframes av-ink{0%,20%{opacity:1;stroke-dashoffset:1}65%{opacity:1;stroke-dashoffset:0}100%{opacity:0;stroke-dashoffset:0}}
+
+/* copy: the page lays itself onto the stack, which redraws beneath it */
+[data-av="content_copy"][data-go] .fr{animation:av-copy 560ms var(--m-io)}
+[data-av="content_copy"][data-go] .bk{animation:av-redraw 560ms var(--m-dec) 60ms backwards}
+@keyframes av-copy{38%{translate:-2.2px 2.2px}}
+
+/* tune: the knobs slide along their rails and come back */
+[data-av="tune"][data-go] .tk1{animation:av-k1 700ms var(--m-io)}
+[data-av="tune"][data-go] .tk2{animation:av-k2 700ms var(--m-io)}
+[data-av="tune"][data-go] .tk3{animation:av-k3 700ms var(--m-io)}
+[data-av="tune"][data-go] .tl1{animation:av-l1 700ms var(--m-io)}
+[data-av="tune"][data-go] .tl2{animation:av-l2 700ms var(--m-io)}
+[data-av="tune"][data-go] .tl3{animation:av-l3 700ms var(--m-io)}
+@keyframes av-k1{45%{translate:-4px 0}}
+@keyframes av-k2{45%{translate:4px 0}}
+@keyframes av-k3{45%{translate:3px 0}}
+@keyframes av-l1{45%{d:path("M4 6H8M12 6H20")}}
+@keyframes av-l2{45%{d:path("M4 12H12M16 12H20")}}
+@keyframes av-l3{45%{d:path("M4 18H11M15 18H20")}}
+
+/* eye: blinks; the slash draws across (and away) as it hides and shows */
+.av .eye{transform-origin:12px 11.5px}
+[data-av^="visibility"][data-go] .eye{animation:av-blink 420ms var(--m-io)}
+@keyframes av-blink{40%{scale:1 .12}}
+.av .slash,.av .slashm{stroke-dasharray:1 2;transition:stroke-dashoffset var(--d-ds) var(--m-std)}
+.av .slashm{stroke:#000;stroke-width:5.2}
+[data-av="visibility"] :is(.slash,.slashm){stroke-dashoffset:1}
+[data-av="visibility_off"] :is(.slash,.slashm){stroke-dashoffset:0}
+
+/* download: the arrow drops into the tray, which gives a little */
+.av .tray{transform-origin:12px 19px}
+[data-av="download"][data-go] .dl{animation:av-drop 560ms var(--m-io)}
+[data-av="download"][data-go] .tray{animation:av-tray 560ms var(--m-io)}
+@keyframes av-drop{40%{translate:0 2.4px}}
+@keyframes av-tray{40%{scale:1.1 1}}
+/* share: the arrow lifts out of the box */
+[data-av="ios_share"][data-go] .up{animation:av-rise 560ms var(--m-io)}
+@keyframes av-rise{40%{translate:0 -2.4px}}
+
+/* refresh: one full turn, the arc thinning to a sliver and filling back out */
+.av .rf{transform-origin:12px 12px}
+[data-av="refresh"][data-go] .rf{animation:av-turn360 820ms var(--m-std)}
+[data-av="refresh"][data-go] .arc{animation:av-arc 820ms var(--m-io)}
+@keyframes av-turn360{to{rotate:360deg}}
+@keyframes av-arc{50%{stroke-dasharray:.55 2}}
+
+/* flag: a ripple runs through the cloth, pinned at the pole */
+.av .cloth{transform-origin:6px 9px}
+[data-av="flag"][data-go] .cloth{animation:av-wave 820ms var(--m-io)}
+@keyframes av-wave{22%{skew:0 -12deg;scale:.92 1}50%{skew:0 7deg;scale:1.02 1}76%{skew:0 -3deg}}
+
+/* undo: the arrow winds back around its curve */
+.av .ud{transform-origin:14.5px 13.5px}
+[data-av="undo"][data-go] .ud{animation:av-undo 560ms var(--m-io)}
+@keyframes av-undo{40%{rotate:-24deg}}
+
+/* light: the rays draw in as the sun turns an eighth; dark: the moon nods */
+.av .rays{transform-origin:12px 12px}
+.av .core{transform-origin:12px 12px}
+[data-av="light_mode"][data-go] .rays{animation:av-rays 700ms var(--m-std)}
+[data-av="light_mode"][data-go] .rays path{animation:av-gather 700ms var(--m-io)}
+[data-av="light_mode"][data-go] .core{animation:av-core 700ms var(--m-io)}
+@keyframes av-rays{to{rotate:45deg}}
+@keyframes av-core{45%{scale:.84}}
+.av .moon{transform-origin:12px 12px}
+[data-av="dark_mode"][data-go] .moon{animation:av-moon 720ms var(--m-io)}
+@keyframes av-moon{45%{rotate:-28deg}}
+
+/* settings: the gear turns one tooth */
+.av .gear{transform-origin:12px 12px}
+[data-av="settings"][data-go] .gear{animation:av-gear var(--d-xds) var(--e-xds)}
+@keyframes av-gear{from{rotate:-60deg}}
+
+/* decks: the top card is dealt a little way and slides home */
+.av .card{transform-origin:11.8px 21px}
+[data-av="style"][data-go] .card{animation:av-deal 620ms var(--m-io)}
+[data-av="style"][data-go] :is(.sl1,.sl2){animation:av-fan 620ms var(--m-io)}
+@keyframes av-deal{40%{rotate:9deg;translate:.6px -.4px}}
+@keyframes av-fan{40%{translate:-1.2px 0}}
+
+/* browse: the lens sweeps the list while its lines are written in */
+[data-av="manage_search"][data-go] .mlens{animation:av-scan 680ms var(--m-io)}
+[data-av="manage_search"][data-go] .ml{animation:av-redraw 480ms var(--m-dec) backwards}
+[data-av="manage_search"][data-go] .ml2{animation-delay:70ms}
+[data-av="manage_search"][data-go] .ml3{animation-delay:140ms}
+@keyframes av-scan{40%{translate:-2.4px 0}}
+
+/* gallery: the photo lifts off the pile and its hills rise into view */
+[data-av="photo_library"][data-go] .fr{animation:av-lift 620ms var(--m-io)}
+[data-av="photo_library"][data-go] .mt{animation:av-hills 620ms var(--m-io)}
+[data-av="photo_library"][data-go] .bk{animation:av-redraw 560ms var(--m-dec) 60ms backwards}
+@keyframes av-lift{40%{translate:.8px -.8px}}
+@keyframes av-hills{35%{translate:0 1.8px;opacity:.15}}
+
+/* stats: light runs along the line, point by point, then the sparkles turn */
+.av .nd,.av .sp{transform-box:fill-box;transform-origin:center}
+[data-av="insights"][data-go] .nd{animation:av-node 380ms var(--m-io) backwards}
+[data-av="insights"][data-go] .nd2{animation-delay:90ms}
+[data-av="insights"][data-go] .nd3{animation-delay:180ms}
+[data-av="insights"][data-go] .nd4{animation-delay:270ms}
+[data-av="insights"][data-go] .sp{animation:av-spark 560ms var(--m-std) 300ms backwards}
+[data-av="insights"][data-go] .sp2{animation-delay:380ms}
+@keyframes av-node{45%{scale:1.45}}
+@keyframes av-spark{from{rotate:-90deg;scale:.4}}
+
+@media (prefers-reduced-motion:reduce){
+  .ms[data-go],.ms[data-go] *,.ms[data-swap]{animation:none!important}
 }
 </style>
 </head>
@@ -6788,7 +7017,7 @@ const buzz = (ms = 8) => { if (Prefs.haptics && navigator.vibrate) try { navigat
 
 /* ---- ripple ---- */
 document.addEventListener('pointerdown', e => {
-  const el = e.target.closest('.rp,.btn,.ib,.li,.chip,.nav-i .ind,.fab,.seg>button,.grades button,.menu button,.systile,.crow,.swatch,.tabsbar button');
+  const el = e.target.closest('.rp,.btn,.ib,.li,.chip,.nav-i .ind,.fab,.seg>button,.grades button,.menu button,.systile,.crow,.swatch,.tabsbar button,.vsw button,.syncbtn,.sync-more,.stc,.gv-id,.tagchip button,.radio');
   if (!el || el.disabled || reduced()) return;
   const host = el.matches('.nav-i .ind') ? el : el;
   const r = host.getBoundingClientRect(), size = Math.max(r.width, r.height) * 2.2;
@@ -6799,6 +7028,164 @@ document.addEventListener('pointerdown', e => {
   const end = () => { sp.classList.add('out'); setTimeout(() => sp.remove(), 320); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); };
   window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
 }, { passive: true });
+
+/* Engram's animated icons: each is drawn from parts so each part can move.
+   24-unit grid, 2-unit round strokes (the Material Symbols Rounded outline
+   weight), traced over the official glyphs. Classes name the moving parts:
+   .f parts fill in when the icon is in its filled state. */
+const AV_O = 'transform="translate(0 24) scale(.025)"'; /* official 960-grid paths */
+const AV = {
+  add: `<g class="xg"><path class="xa xa1" pathLength="1" d="M12 12V6"/><path class="xa xa2" pathLength="1" d="M12 12H18"/><path class="xa xa3" pathLength="1" d="M12 12V18"/><path class="xa xa4" pathLength="1" d="M12 12H6"/></g>`,
+  close: `<g class="xg"><path class="xa xa1" pathLength="1" d="M12 12L6.1 6.1"/><path class="xa xa2" pathLength="1" d="M12 12L17.9 6.1"/><path class="xa xa3" pathLength="1" d="M12 12L17.9 17.9"/><path class="xa xa4" pathLength="1" d="M12 12L6.1 17.9"/></g>`,
+  check: `<path class="tick" pathLength="1" d="M5 12L9.6 16.6L19.1 7.1"/>`,
+  arrow_back: `<g class="ab"><path class="shaft" pathLength="1" d="M5.4 12H19"/><path class="head" d="M12.3 5.1L5.4 12L12.3 18.9"/></g>`,
+  chevron_right: `<path class="chev" d="M9.1 7.1L13.9 12L9.1 16.9"/>`,
+  chevron_left: `<path class="chev" d="M14.2 7.1L9.4 12L14.2 16.9"/>`,
+  expand_more: `<path class="chev" d="M7.1 9.1L12 13.9L16.9 9.1"/>`,
+  expand_less: `<path class="chev" d="M7.1 14.2L12 9.4L16.9 14.2"/>`,
+  more_vert: `<circle class="solid dt dt1" cx="12" cy="6" r="2"/><circle class="solid dt dt2" cx="12" cy="12" r="2"/><circle class="solid dt dt3" cx="12" cy="18" r="2"/>`,
+  play_arrow: `<path class="f pp pp1" d="M9 6.8L17.1 12L17.1 12L9 17.3Z"/><path class="f pp pp2" d="M17.1 12L17.1 12L17.1 12L17.1 12Z"/>`,
+  pause: `<path class="f pp pp1" d="M6 6L10 6L10 18L6 18Z"/><path class="f pp pp2" d="M14 6L18 6L18 18L14 18Z"/>`,
+  search: `<circle class="lens" cx="9.5" cy="9.5" r="5.5"/><path class="handle" pathLength="1" d="M13.4 13.4L19.9 19.9"/>`,
+  delete: `<g class="lid"><path d="M5 5H19"/><path d="M10 4H14"/></g><path class="bin" d="M6 6V19A1 1 0 0 0 7 20H17A1 1 0 0 0 18 19V6"/><path class="bars" d="M10 9V16M14 9V16"/>`,
+  star: `<path class="f star" d="M7.34 18.9L12 16.09L16.66 18.94L15.43 13.61L19.54 10.06L14.13 9.58L12 4.58L9.87 9.56L4.48 10.04L8.57 13.61Z"/>`,
+  info: `<circle class="f ring" cx="12" cy="12" r="9"/><path class="stem" pathLength="1" d="M12 16.5V11.5"/><circle class="solid idot" cx="12" cy="8" r="1.1"/>`,
+  edit: `<g class="pen"><path class="penb" d="M4 20H6.85L17.61 9.2L14.8 6.39L4 17.19Z"/><path class="solid-s cap" d="M14.8 6.39L16.7 4.5Q17.9 3.4 19.1 4.5L19.5 4.9Q20.6 6.1 19.5 7.3L17.61 9.2Z"/></g><path class="ink" pathLength="1" d="M4 22H11"/>`,
+  content_copy: `<path class="bk" pathLength="1" d="M15 21H5A1 1 0 0 1 4 20V6"/><rect class="f fr" x="8" y="3" width="11" height="14" rx="1"/>`,
+  tune: `<path class="tl tl1" d="M4 6H12M16 6H20"/><path class="tk tk1" d="M16 4V8"/><path class="tl tl2" d="M4 12H8M12 12H20"/><path class="tk tk2" d="M8 10V14"/><path class="tl tl3" d="M4 18H8M12 18H20"/><path class="tk tk3" d="M12 16V20"/>`,
+  visibility: `<mask id="%ID%" maskUnits="userSpaceOnUse" x="-2" y="-2" width="28" height="28"><rect x="-2" y="-2" width="28" height="28" fill="#fff" stroke="none"/><path class="slashm" pathLength="1" d="M3 3.8L20.3 21.1"/></mask><g mask="url(#%ID%)"><g class="eye"><path class="lidp" d="M2.3 11.5C4.8 7.2 8.2 5 12 5S19.2 7.2 21.7 11.5C19.2 15.8 15.8 18 12 18S4.8 15.8 2.3 11.5Z"/><circle class="f pupil" cx="12" cy="11.5" r="3.6"/></g></g><path class="slash" pathLength="1" d="M3 3.8L20.3 21.1"/>`,
+  visibility_off: `<mask id="%ID%" maskUnits="userSpaceOnUse" x="-2" y="-2" width="28" height="28"><rect x="-2" y="-2" width="28" height="28" fill="#fff" stroke="none"/><path class="slashm" pathLength="1" d="M3 3.8L20.3 21.1"/></mask><g mask="url(#%ID%)"><g class="eye"><path class="lidp" d="M2.3 11.5C4.8 7.2 8.2 5 12 5S19.2 7.2 21.7 11.5C19.2 15.8 15.8 18 12 18S4.8 15.8 2.3 11.5Z"/><circle class="f pupil" cx="12" cy="11.5" r="3.6"/></g></g><path class="slash" pathLength="1" d="M3 3.8L20.3 21.1"/>`,
+  download: `<g class="dl"><path class="dls" d="M12 5V14"/><path d="M8.4 10.8L12 14.4L15.6 10.8"/></g><path class="tray" d="M5 16V18A1 1 0 0 0 6 19H18A1 1 0 0 0 19 18V16"/>`,
+  ios_share: `<g class="up"><path d="M12 15V3"/><path d="M8.9 5.9L12 2.8L15.1 5.9"/></g><path class="box" d="M8 9H6A1 1 0 0 0 5 10V20.7A1 1 0 0 0 6 21.7H18A1 1 0 0 0 19 20.7V10A1 1 0 0 0 18 9H16"/>`,
+  refresh: `<g class="rf"><path class="arc" pathLength="1" d="M17.5 7.7A7 7 0 1 0 18.1 15.4"/><path d="M19 5V10H14"/></g>`,
+  flag: `<path class="pole" d="M6 20V5"/><path class="f cloth" d="M6 5H13L13.4 7H19V15H13.8L13.4 13H6"/>`,
+  undo: `<g class="ud"><path class="udb" pathLength="1" d="M8 18H14.5A4.5 4.5 0 0 0 14.5 9H5.6"/><path class="udh" d="M9.3 5.1L5.4 9L9.3 12.9"/></g>`,
+  light_mode: `<g class="rays"><path pathLength="1" d="M12 4V2"/><path pathLength="1" d="M12 20V22"/><path pathLength="1" d="M4 12H2"/><path pathLength="1" d="M20 12H22"/><path pathLength="1" d="M6.34 6.34L4.93 4.93"/><path pathLength="1" d="M17.66 17.66L19.07 19.07"/><path pathLength="1" d="M6.34 17.66L4.93 19.07"/><path pathLength="1" d="M17.66 6.34L19.07 4.93"/></g><circle class="f core" cx="12" cy="12" r="4"/>`,
+  dark_mode: `<path class="f moon" d="M11.11 4.05A8 8 0 1 0 19.95 12.89A6.4 6.4 0 0 1 11.11 4.05Z"/>`,
+  settings: `<g class="gear"><path class="solid gear0" ${AV_O} d="M433-80q-27 0-46.5-18T363-142l-9-66q-13-5-24.5-12T307-235l-62 26q-25 11-50 2t-39-32l-47-82q-14-23-8-49t27-43l53-40q-1-7-1-13.5v-27q0-6.5 1-13.5l-53-40q-21-17-27-43t8-49l47-82q14-23 39-32t50 2l62 26q11-8 23-15t24-12l9-66q4-26 23.5-44t46.5-18h94q27 0 46.5 18t23.5 44l9 66q13 5 24.5 12t22.5 15l62-26q25-11 50-2t39 32l47 82q14 23 8 49t-27 43l-53 40q1 7 1 13.5v27q0 6.5-2 13.5l53 40q21 17 27 43t-8 49l-48 82q-14 23-39 32t-50-2l-60-26q-11 8-23 15t-24 12l-9 66q-4 26-23.5 44T527-80h-94Zm7-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></g>`,
+  style: `<path class="solid sl1" ${AV_O} d="m159-168-34-14q-31-13-41.5-45t3.5-63l72-156v278Z"/><path class="solid sl2" ${AV_O} d="M319-80q-33 0-56.5-23.5T239-160v-240l106 294q3 7 6 13.5t8 12.5h-40Z"/><g class="card"><path class="f cardb" d="M7.08 8.18Q6.7 7.15 7.73 6.77L15.1 4.1Q16.13 3.72 16.51 4.75L20.88 16.82Q21.26 17.85 20.23 18.23L12.86 20.9Q11.83 21.28 11.45 20.25Z"/><circle class="solid cdot" cx="10.98" cy="9" r="1"/></g>`,
+  manage_search: `<path class="ml ml1" pathLength="1" d="M3 8H6"/><path class="ml ml2" pathLength="1" d="M3 13H6"/><path class="ml ml3" pathLength="1" d="M3 18H11"/><g class="mlens"><circle class="f mlc" cx="14" cy="11" r="4"/><path d="M16.9 13.9L20.4 17.4"/></g>`,
+  photo_library: `<path class="bk" pathLength="1" d="M17 21H4A1 1 0 0 1 3 20V7"/><rect class="f fr" x="7" y="3" width="14" height="14" rx="1"/><g class="mt"><path class="solid mtn" ${AV_O} d="m530-460-46-60q-6-8-16-8t-16 8l-67 88q-8 10-2.5 21t18.5 11h318q13 0 18.5-11t-2.5-21l-97-127q-6-8-16-8t-16 8l-76 99Z"/></g>`,
+  insights: `<path class="ln" pathLength="1" d="M3 18L10 11L15 16L21 10" style="stroke-width:1.5"/><circle class="solid nd nd1" cx="3" cy="18" r="2"/><circle class="solid nd nd2" cx="10" cy="11" r="2"/><circle class="solid nd nd3" cx="15" cy="16" r="2"/><circle class="solid nd nd4" cx="21" cy="10" r="2"/><path class="solid sp sp1" d="M4 9.975l-.625-1.35L2.025 8l1.35-.625L4 6.025l.625 1.35L5.975 8l-1.35.625Z"/><path class="solid sp sp2" d="M15 9l-.95-2.05L12 6l2.05-.95L15 3l.95 2.05L18 6l-2.05.95Z"/>`,
+};
+
+/* Icons named in AV are drawn as parts over their glyph. A tap sets
+   data-go on the icons of the control you touched, which starts that
+   icon's gesture in CSS. When the app changes an icon's glyph, a related
+   icon (play/pause, show/hide) morphs from the old drawing; anything else
+   fades in. Every :active rule also answers to .is-down, which a press
+   holds for at least MIN_PRESS ms so a quick tap still shows its shape. */
+const Icons = (() => {
+  const PRESSABLE = 'button,[role="button"],[role="switch"],[role="tab"],[role="menuitem"],a[href],label.radio,.rp,.li,.crow,.chip,.swatch,.systile';
+  const MIN_PRESS = 140, GO_MS = 900;
+  const FAMILY = { play_arrow: 'pp', pause: 'pp', expand_more: 'chv', expand_less: 'chv', visibility: 'eye', visibility_off: 'eye' };
+  let canMorphD = false; try { canMorphD = CSS.supports('d', 'path("M0 0")'); } catch (e) { }
+  let uid = 0;
+  const glyph = el => { let t = ''; for (const n of el.childNodes) if (n.nodeType === 3) t += n.nodeValue; return t.trim(); };
+
+  const draw = (el, name) => {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = `<svg class="av" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${AV[name].replace(/%ID%/g, 'av' + (++uid))}</svg>`;
+    el.appendChild(tpl.content.firstChild); el.dataset.av = name;
+  };
+  const upgrade = el => {
+    const name = glyph(el);
+    if (!AV[name]) { if (el.dataset.av) delete el.dataset.av; return; }
+    if (el.dataset.av === name && el.querySelector(':scope>.av')) return;
+    el.querySelector(':scope>.av')?.remove(); draw(el, name);
+  };
+  const upgradeIn = root => {
+    if (root.nodeType !== 1) return;
+    if (root.classList.contains('ms')) upgrade(root);
+    else if (root.firstElementChild) root.querySelectorAll('.ms').forEach(upgrade);
+  };
+
+  const timers = new WeakMap();
+  const go = el => {
+    if (!el || !el.isConnected || el.classList.contains('spin') || reduced()) return;
+    el.removeAttribute('data-go'); void el.offsetWidth;
+    el.setAttribute('data-go', '');
+    clearTimeout(timers.get(el)); timers.set(el, setTimeout(() => el.removeAttribute('data-go'), GO_MS));
+  };
+
+  /* the app swapped a glyph: morph within a family, otherwise fade the new one in */
+  let changed = new WeakSet(), busy = false;
+  const swap = (el, before, oldSvg) => {
+    const name = glyph(el); if (name === before) { upgrade(el); return; }
+    changed.add(el);
+    const fam = FAMILY[name];
+    if (oldSvg && fam && FAMILY[before] === fam && (fam === 'eye' || canMorphD)) {
+      el.appendChild(oldSvg); void oldSvg.getBoundingClientRect();
+      el.dataset.av = name;                     /* CSS moves the parts to the new shape */
+      return;
+    }
+    upgrade(el);
+    if (!reduced()) { el.removeAttribute('data-swap'); void el.offsetWidth; el.setAttribute('data-swap', ''); setTimeout(() => el.removeAttribute('data-swap'), 400); }
+  };
+  const mo = new MutationObserver(list => {
+    if (busy) return; busy = true;
+    try {
+      for (const m of list) {
+        const t = m.target;
+        if (m.type === 'characterData') { const el = t.parentElement; if (el && el.classList.contains('ms')) swap(el, m.oldValue.trim(), el.querySelector(':scope>.av')); continue; }
+        if (t.nodeType === 1 && t.classList.contains('ms')) {
+          if ([...m.addedNodes].every(n => n.nodeType === 1 && n.classList.contains('av'))) continue;   /* our own drawing */
+          let before = '', oldSvg = null;
+          for (const n of m.removedNodes) { if (n.nodeType === 3) before += n.nodeValue; else if (n.classList && n.classList.contains('av')) oldSvg = n; }
+          swap(t, before.trim(), oldSvg);
+          continue;
+        }
+        m.addedNodes.forEach(upgradeIn);
+      }
+    } finally { mo.takeRecords(); busy = false; }
+  });
+
+  /* press */
+  document.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    const el = e.target.closest(PRESSABLE);
+    if (!el || el.disabled || el.matches('[aria-disabled="true"]')) return;
+    const t0 = performance.now(); el.classList.add('is-down');
+    const up = ev => {
+      window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      const left = ev.type === 'pointercancel' ? 0 : Math.max(0, MIN_PRESS - (performance.now() - t0));
+      setTimeout(() => el.classList.remove('is-down'), left);
+    };
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  }, { passive: true });
+
+  /* tap: note the control's icons before the app redraws it, then play them
+     next frame, on the redrawn copy if the old one is gone */
+  const iconsOf = host => [...host.querySelectorAll('.ms')].filter(i => i.closest(PRESSABLE) === host).slice(0, 3);
+  const keyOf = host => {
+    if (host.id) return '#' + CSS.escape(host.id);
+    const a = [...host.attributes].filter(x => x.name.startsWith('data-') || x.name === 'aria-label');
+    return a.length ? host.localName + a.map(x => `[${x.name}="${CSS.escape(x.value)}"]`).join('') : null;
+  };
+  document.addEventListener('click', e => {
+    const host = e.target.closest && e.target.closest(PRESSABLE);
+    if (!host || reduced()) return;
+    const hits = iconsOf(host); if (!hits.length) return;
+    const key = keyOf(host);
+    requestAnimationFrame(() => {
+      let fresh = null;
+      if (!host.isConnected && key) try { fresh = document.querySelector(key); } catch (err) { }
+      hits.forEach((el, n) => {
+        if (!el.isConnected) el = fresh ? iconsOf(fresh)[n] : null;
+        if (el && !changed.has(el)) go(el);
+      });
+      changed = new WeakSet();
+    });
+  }, true);
+
+  const start = () => {
+    const app = document.getElementById('app'); if (!app) return;
+    app.querySelectorAll('.ms').forEach(upgrade);
+    mo.observe(app, { subtree: true, childList: true, characterData: true, characterDataOldValue: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  return { go, upgrade };
+})();
 
 /* ---- back stack: every page, sheet, dialog and menu registers a closer,
    so the Android back gesture closes the top-most thing first.
