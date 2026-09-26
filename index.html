@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.0 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -10986,7 +10987,7 @@ async function runExport(st) {
 }
 
 /* ------------------------------------------------------------------- STATS */
-const StatsUI = { scope: 'all', animate: false, dir: 0, calMonth: 0 };
+const StatsUI = { scope: 'all', scopeFrom: null, animate: false, dir: 0, calMonth: 0 };
 function statsCards() {
   if (StatsUI.scope === 'all' || !Col.decks[Col.conf.curDeck]) return [...Col.cards.values()];
   const ids = new Set(Col.deckAndChildIds(Col.conf.curDeck)); return [...Col.cards.values()].filter(c => ids.has(c.did) || ids.has(c.odid));
@@ -11653,7 +11654,18 @@ function renderStats(el) {
   if (StatsUI.dir) { void body.offsetWidth; body.classList.add(StatsUI.dir > 0 ? 'vx-r' : 'vx-l'); StatsUI.dir = 0; }
   if (StatsUI.animate && Prefs.statsView !== 'anki' && !reduced()) { body.classList.add('ix-intro'); countUp(body); setTimeout(() => body.classList.remove('ix-intro'), 2200); }
   StatsUI.animate = false;
-  body.querySelectorAll('[data-seg="stats-scope"] button').forEach(b => b.onclick = () => { if (StatsUI.scope === b.dataset.v) return; StatsUI.scope = b.dataset.v; StatsUI.animate = Prefs.statsView !== 'anki'; App.renderTab('stats'); });
+  const seg = body.querySelector('[data-seg="stats-scope"]');
+  /* a scope tap rebuilds the page, so the new group starts in the old state and then switches, letting its transitions play */
+  if (seg && StatsUI.scopeFrom) {
+    const bs = [...seg.children], hit = bs.find(b => b.dataset.v === StatsUI.scope);
+    bs.forEach(b => b.setAttribute('aria-pressed', b.dataset.v === StatsUI.scopeFrom));
+    if (hit && !reduced()) hit.style.flexGrow = '1.15';
+    void seg.offsetWidth;
+    bs.forEach(b => b.setAttribute('aria-pressed', b === hit));
+    if (hit) hit.style.flexGrow = '';
+  }
+  StatsUI.scopeFrom = null;
+  if (seg) seg.querySelectorAll('button').forEach(b => b.onclick = () => { if (StatsUI.scope === b.dataset.v) return; StatsUI.scopeFrom = StatsUI.scope; StatsUI.scope = b.dataset.v; StatsUI.animate = Prefs.statsView !== 'anki'; App.renderTab('stats'); });
 }
 /* the first visit to the tab plays the entrance; background refreshes don't */
 { const sw0 = App.switchTab; App.switchTab = function (t, fromBack) { if (t === 'stats' && this.tab !== 'stats') StatsUI.animate = true; return sw0.call(this, t, fromBack); }; }
