@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.0 -->
+<!-- v1.1 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -10987,7 +10987,20 @@ async function runExport(st) {
 }
 
 /* ------------------------------------------------------------------- STATS */
-const StatsUI = { scope: 'all', scopeFrom: null, animate: false, dir: 0, calMonth: 0 };
+const StatsUI = { scope: 'all', scopeFrom: null, rangeFrom: null, rangeScroll: 0, animate: false, dir: 0, calMonth: 0 };
+/* a tap rebuilds the page, so a rebuilt control starts in its old state and then switches, letting its transitions play */
+function replayPressed(host, sel, from, press) {
+  const bs = [...host.querySelectorAll(sel)], hit = bs.find(b => b.getAttribute('aria-pressed') === 'true');
+  if (!hit) return;
+  const els = bs.flatMap(b => [b, ...b.querySelectorAll('*')]);
+  els.forEach(e => e.style.transition = 'none');
+  bs.forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(from)));
+  if (!reduced()) Object.assign(hit.style, press);
+  void host.offsetWidth;
+  els.forEach(e => e.style.transition = '');
+  bs.forEach(b => b.setAttribute('aria-pressed', b === hit));
+  for (const k in press) hit.style[k] = '';
+}
 function statsCards() {
   if (StatsUI.scope === 'all' || !Col.decks[Col.conf.curDeck]) return [...Col.cards.values()];
   const ids = new Set(Col.deckAndChildIds(Col.conf.curDeck)); return [...Col.cards.values()].filter(c => ids.has(c.did) || ids.has(c.odid));
@@ -11654,17 +11667,10 @@ function renderStats(el) {
   if (StatsUI.dir) { void body.offsetWidth; body.classList.add(StatsUI.dir > 0 ? 'vx-r' : 'vx-l'); StatsUI.dir = 0; }
   if (StatsUI.animate && Prefs.statsView !== 'anki' && !reduced()) { body.classList.add('ix-intro'); countUp(body); setTimeout(() => body.classList.remove('ix-intro'), 2200); }
   StatsUI.animate = false;
-  const seg = body.querySelector('[data-seg="stats-scope"]');
-  /* a scope tap rebuilds the page, so the new group starts in the old state and then switches, letting its transitions play */
-  if (seg && StatsUI.scopeFrom) {
-    const bs = [...seg.children], hit = bs.find(b => b.dataset.v === StatsUI.scope);
-    bs.forEach(b => b.setAttribute('aria-pressed', b.dataset.v === StatsUI.scopeFrom));
-    if (hit && !reduced()) hit.style.flexGrow = '1.15';
-    void seg.offsetWidth;
-    bs.forEach(b => b.setAttribute('aria-pressed', b === hit));
-    if (hit) hit.style.flexGrow = '';
-  }
-  StatsUI.scopeFrom = null;
+  const seg = body.querySelector('[data-seg="stats-scope"]'), rng = body.querySelector('.ix-range');
+  if (seg && StatsUI.scopeFrom) replayPressed(seg, 'button', StatsUI.scopeFrom, { flexGrow: '1.15' });
+  if (rng && StatsUI.rangeFrom != null) { rng.scrollLeft = StatsUI.rangeScroll; replayPressed(rng, '.chip', StatsUI.rangeFrom, { borderRadius: '16px' }); }
+  StatsUI.scopeFrom = StatsUI.rangeFrom = null;
   if (seg) seg.querySelectorAll('button').forEach(b => b.onclick = () => { if (StatsUI.scope === b.dataset.v) return; StatsUI.scopeFrom = StatsUI.scope; StatsUI.scope = b.dataset.v; StatsUI.animate = Prefs.statsView !== 'anki'; App.renderTab('stats'); });
 }
 /* the first visit to the tab plays the entrance; background refreshes don't */
@@ -11742,7 +11748,7 @@ const Session = {
 
 /* ---------------- actions ---------------- */
 const IX_ACT = {
-  'ix-range': (b) => { const v = b.dataset.v === 'all' ? 'all' : +b.dataset.v; if (Prefs.insightsRange === v) return; Prefs.insightsRange = v; savePrefs(); StatsUI.animate = true; buzz(4); App.renderTab('stats'); },
+  'ix-range': (b) => { const v = b.dataset.v === 'all' ? 'all' : +b.dataset.v; if (Prefs.insightsRange === v) return; StatsUI.rangeFrom = Prefs.insightsRange || 30; StatsUI.rangeScroll = b.parentElement.scrollLeft; Prefs.insightsRange = v; savePrefs(); StatsUI.animate = true; buzz(4); App.renderTab('stats'); },
   'ix-cal': (b) => {
     const A = Insights.all(StatsUI.scope); StatsUI.calMonth = Math.min(0, (StatsUI.calMonth || 0) + +b.dataset.m);
     const box = b.closest('.ix-card').querySelector('[data-cal]'); box.innerHTML = ixCalendar(A, StatsUI.calMonth);
