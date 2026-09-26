@@ -4292,13 +4292,20 @@ const AnkiIO = (() => {
   /* map: array, one entry per column: {kind:'field', idx} | {kind:'tags'} | {kind:'deck'} | {kind:'notetype'} | {kind:'guid'} | null */
   function importText(parsed, { mid, did, map, html = true, dupe = 'update', extraTags = [] }) {
     const stats = { added: 0, updated: 0, skipped: 0, failed: 0, errors: [] };
+    const missingNt = new Map();
     const byGuid = new Map(); for (const n of Col.notes.values()) byGuid.set(n.guid, n);
     const byFirst = new Map(); for (const n of Col.notes.values()) byFirst.set(n.mid + ':' + Txt.stripHtmlMedia(n.flds[0]).toLowerCase(), n);
     parsed.rows.forEach((row, ri) => {
       let m = Col.models[mid], deckId = did, guid = null, tags = [...extraTags, ...(parsed.head.tags || [])];
       const flds = [];
       const ntCol = map.findIndex(x => x && x.kind === 'notetype');
-      if (ntCol >= 0 && row[ntCol]) { const mm = Col.modelByName(row[ntCol]) || Col.models[row[ntCol]]; if (mm) m = mm; }
+      /* a row that names a note type this collection lacks is refused, like Anki does: falling back to the
+         chosen type would keep only as many fields as it has and silently drop the rest */
+      if (ntCol >= 0 && row[ntCol] && row[ntCol].trim()) {
+        const name = row[ntCol].trim(), mm = Col.modelByName(name) || Col.models[name];
+        if (!mm) { stats.failed++; missingNt.set(name, (missingNt.get(name) || 0) + 1); return; }
+        m = mm;
+      }
       if (!m) { stats.failed++; return; }
       map.forEach((x, ci) => {
         if (!x) return; const v = row[ci] ?? '';
@@ -4328,6 +4335,7 @@ const AnkiIO = (() => {
         byGuid.set(n.guid, n); byFirst.set(m.id + ':' + Txt.stripHtmlMedia(flds[0]).toLowerCase(), n);
       } catch (e) { stats.failed++; if (stats.errors.length < 5) stats.errors.push(`Line ${ri + 1}: ${e.message}`); }
     });
+    for (const [name, k] of missingNt) stats.errors.unshift(`${plural(k, 'note')} not imported: the note type “${name}” is not in this collection. Import an Anki package (.apkg) that has it, or add it, then import this file again.`);
     return stats;
   }
   function quoteCsv(s, sep) { s = String(s ?? ''); return /["\n\r]/.test(s) || s.includes(sep) ? '"' + s.replace(/"/g, '""') + '"' : s; }
@@ -10754,9 +10762,13 @@ function renderTextImport(el, pg) {
   const colOpts = [['ignore', 'Ignore'], ...m.flds.map((f, i) => ['f' + i, 'Field: ' + f.name]), ['tags', 'Tags'], ['deck', 'Deck'], ['notetype', 'Note type'], ['guid', 'Note ID (GUID)']];
   const val = x => !x ? 'ignore' : x.kind === 'field' ? 'f' + x.idx : x.kind;
   const sample = t.rows.slice(0, 3);
+  const ntCol = s.map.findIndex(x => x && x.kind === 'notetype');
+  const missing = ntCol < 0 ? [] : [...new Set(t.rows.map(r => (r[ntCol] || '').trim()).filter(n => n && !Col.modelByName(n) && !Col.models[n]))];
   el.innerHTML = `${topbar({ title: 'Import text', always: true })}
   <div class="scroll"><div class="pad">
     <div class="bd-m muted" style="margin:4px 4px 12px">${esc(s.fileName)} · ${plural(t.rows.length, 'row')} · separator “${t.sep === '\t' ? 'Tab' : esc(t.sep)}”</div>
+    <div class="issue warn" style="margin:0 0 12px">${ic('info')}<span>A text file has notes only, no study progress. To bring your progress, export from Anki as <b>Anki Deck Package (.apkg)</b> with <b>Include scheduling information</b> ticked.</span></div>
+    ${missing.length ? `<div class="issue warn" style="margin:0 0 12px">${ic('warning')}<span>This file uses ${missing.length === 1 ? 'a note type' : 'note types'} not in this collection: <b>${missing.slice(0, 5).map(esc).join('</b>, <b>')}</b>${missing.length > 5 ? '…' : ''}. Those rows will not be imported. Import an .apkg that has ${missing.length === 1 ? 'it' : 'them'} first.</span></div>` : ''}
     <div class="field"><label>Note type</label>${selectHtml('id="ti-mid"', Object.values(Col.models).map(x => [x.id, x.name]), s.mid)}</div>
     <div class="field"><label>Deck</label>${selectHtml('id="ti-did"', deckOptionsList(), s.did)}</div>
     <div class="sec-t" style="margin:16px 4px 10px">Columns</div>
