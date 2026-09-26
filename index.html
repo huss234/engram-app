@@ -5497,6 +5497,8 @@ const Sync = {
       (Col.dirty.revlogDel || (Col.dirty.revlogDel = [])).push(rid); this.remoteDel.add(k); return true;
     }
     const local = t === 'n' ? Col.notes.get(+id) : t === 'c' ? Col.cards.get(+id) : t === 'd' ? Col.decks[id] : t === 'm' ? Col.models[id] : t === 'p' ? Col.dconf[id] : t === 'f' ? (id in Col.conf ? { mod: 0 } : null) : t === 't' ? (id in Col.tags ? {} : null) : t === 'x' ? (Col.media.get(id) || this.trash.get(id)) : null;
+    /* a copy changed or re-created after the deletion wins over it */
+    if (local && 'ncdmp'.includes(t) && (local.mod || 0) > mod) return false;
     ({ n: S.n, c: S.c }[t] || S[t]).delete(t === 'n' || t === 'c' ? +id : id);
     if (!local) { if (pend) this.dropPending(k); return false; }
     if (pend && pend.op === 'put' && (local.mod || 0) > mod) return false;     /* an edit newer than the delete wins */
@@ -5514,12 +5516,14 @@ const Sync = {
     }
     return true;
   },
-  applyRevRows(rows, ctx) {
+  applyRevRows(rows, ctx, at = 0) {
     let added = 0; const S = this.shadow, fresh = [];
     if (!ctx.revIds) { const a = new Float64Array(Col.revlog.length); for (let i = 0; i < a.length; i++) a[i] = Col.revlog[i].id; a.sort(); ctx.revIds = new RevSet(a); }
     const hasGraves = [...this.graves.keys()].some(k => k.startsWith('r:'));
     for (const a of rows) {
-      const id = a[0]; if (hasGraves && this.graves.has('r:' + id)) continue;
+      const id = a[0];
+      /* a row deleted earlier is skipped, unless a journal written after the deletion brings it back */
+      if (hasGraves && this.graves.has('r:' + id)) { if (at && at / 1000 > this.graves.get('r:' + id)) this.graves.delete('r:' + id); else continue; }
       if (!ctx.replace) S.rev.add(id);
       if (this.ob.size && this.ob.has('r:' + id)) this.dropPending('r:' + id);
       if (ctx.revIds.has(id)) continue;
@@ -5555,7 +5559,7 @@ const Sync = {
     if (j.t) for (const k of j.t) this.applyPut('t', k, 0, ctx);
     if (j.n) for (const [id, a] of Object.entries(j.n)) if (this.applyPut('n', id, a, ctx)) ctx.changes++;
     if (j.c) for (const [id, a] of Object.entries(j.c)) if (this.applyPut('c', id, a, ctx)) ctx.changes++;
-    if (j.r) ctx.changes += this.applyRevRows(j.r, ctx);
+    if (j.r) ctx.changes += this.applyRevRows(j.r, ctx, j.at);
     if (j.x) for (const [n, e] of Object.entries(j.x)) if (this.applyPut('x', n, e, ctx)) ctx.changes++;
     if (j.g) for (const [k, m] of Object.entries(j.g)) if (this.applyDel(k, m, ctx)) ctx.changes++;
   },
@@ -5693,7 +5697,28 @@ const Sync = {
   },
 
   /* ---------------- push ---------------- */
+  /* A record deleted earlier (on any device) that is here again, e.g. the same Anki package imported
+     after wiping: its own mod predates the deletion, so other devices, and this one on a full re-read,
+     would delete it again. It gets a fresh mod and the deletion is forgotten; review rows, which have
+     no mod, are sent again and receivers accept them because the journal is newer than the deletion. */
+  async reviveGraved() {
+    if (!this.graves.size) return;
+    const t = nowSecs(); let bumped = false;
+    for (const [k, g] of [...this.graves]) {
+      const i = k.indexOf(':'), p = k.slice(0, i), id = k.slice(i + 1);
+      if (p === 'r') { if (this.revById(+id)) this.graves.delete(k); continue; }
+      const rec = p === 'n' ? Col.notes.get(+id) : p === 'c' ? Col.cards.get(+id) : p === 'd' ? Col.decks[id] : p === 'm' ? Col.models[id] : p === 'p' ? Col.dconf[id] : null;
+      if (!rec) continue;
+      if ((rec.mod || 0) <= g) {
+        rec.mod = Math.max(t, g + 1); bumped = true;
+        if (p === 'n') Col.dirty.notes.add(+id); else if (p === 'c') Col.dirty.cards.add(+id); else Col.dirty.meta = true;
+      }
+      this.graves.delete(k);
+    }
+    if (bumped) await Store.flush();
+  },
   async push({ keepalive = false } = {}) {
+    await this.reviveGraved();
     const entries = [...this.ob.values()].filter(e => !this.blocked.has(e.k));
     if (!this.st.snapshotAt || entries.length > BULK_LIMIT || this.ob.has('*:all')) return this.bulkPush(entries);
     if (!entries.length && !this.st.scmBump && !this.outConflicts.length) return { sent: 0 };
