@@ -528,9 +528,10 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 /* ---------- study session ---------- */
 .study{background:var(--bg)}
 .st-top{display:flex;align-items:center;gap:4px;height:64px;padding:0 4px;flex:none}
-.st-prog{flex:1;height:24px;display:flex;align-items:center}
-.st-prog svg{width:100%;height:24px;overflow:visible}
-.st-counts{display:flex;justify-content:center;gap:6px;padding:0 16px 4px;flex:none}
+.st-counts{display:flex;justify-content:safe center;gap:4px;padding:0 2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.st-counts::-webkit-scrollbar{display:none}
+.st-counts .cnt{padding:0 8px}
+@media (max-width:420px){.st-top{gap:2px}.st-top .ib{width:40px}}
 .st-stage{flex:1;min-height:0;position:relative;margin:8px 16px 0}
 .st-card{position:absolute;inset:0;background:var(--item);border-radius:32px;padding:28px 24px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;
   scrollbar-width:none;touch-action:pan-y}
@@ -682,6 +683,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .st-card[data-flag="1"]{--flagc:#e53935}.st-card[data-flag="2"]{--flagc:#fb8c00}.st-card[data-flag="3"]{--flagc:#43a047}.st-card[data-flag="4"]{--flagc:#1e88e5}
 .st-card[data-flag="5"]{--flagc:#d81b60}.st-card[data-flag="6"]{--flagc:#00acc1}.st-card[data-flag="7"]{--flagc:#8e24aa}
 .st-timer{font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
+.st-timer:empty{display:none}
 .st-timer.over{color:var(--error)}
 .cnt.cur{box-shadow:inset 0 -3px 0 currentColor}
 .st-card .empty{height:100%;justify-content:center}
@@ -962,11 +964,10 @@ label.li{cursor:text}
   #app:not(.has-pane) #tab-browse{padding-left:max(0px,calc((100% - 1040px) / 2));padding-right:max(0px,calc((100% - 1040px) / 2))}
 
   /* study: card on the left, answer buttons in a column on the right */
-  .page.study:not(.done){display:grid;grid-template-columns:minmax(0,1fr) clamp(220px,24%,300px);grid-template-rows:64px auto minmax(0,1fr)}
+  .page.study:not(.done){display:grid;grid-template-columns:minmax(0,1fr) clamp(220px,24%,300px);grid-template-rows:64px minmax(0,1fr)}
   .page.study:not(.done) .st-top{grid-column:1/-1;grid-row:1}
-  .page.study:not(.done) .st-stage{grid-column:1;grid-row:2/4;margin:0 8px 16px 16px;min-height:0}
-  .page.study:not(.done) .st-counts{grid-column:2;grid-row:2;flex-wrap:wrap;padding:4px 16px 12px 8px}
-  .page.study:not(.done) .st-bottom{grid-column:2;grid-row:3;display:flex;flex-direction:column;justify-content:flex-end;min-height:0;padding:0 16px 16px 8px}
+  .page.study:not(.done) .st-stage{grid-column:1;grid-row:2;margin:0 8px 16px 16px;min-height:0}
+  .page.study:not(.done) .st-bottom{grid-column:2;grid-row:2;display:flex;flex-direction:column;justify-content:flex-end;min-height:0;padding:0 16px 16px 8px}
   .page.study:not(.done) .st-bottom>.btn.l{height:auto;min-height:112px;flex-direction:column;gap:6px;white-space:normal;text-align:center;border-radius:32px}
   .page.study:not(.done) .st-bottom>.btn.l:active{border-radius:20px}
   .page.study:not(.done) .grades{flex-direction:column;gap:4px}
@@ -1305,7 +1306,7 @@ label.li{cursor:text}
    ============================================================ */
 @property --swp{syntax:'<number>';inherits:true;initial-value:0}
 
-/* status row: counts in the middle, the card's own state beside them */
+/* status row, in the top bar: counts in the middle, the card's own state beside them */
 .st-counts{align-items:center;min-height:32px;flex-wrap:nowrap}
 .stc{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:14px;background:var(--sch);color:var(--on-surface-variant);
   font:600 calc(12px*var(--ts))/1 var(--font);white-space:nowrap;min-width:0;flex:none;
@@ -1313,8 +1314,6 @@ label.li{cursor:text}
 button.stc{cursor:pointer}
 button.stc:active{border-radius:8px}
 .stc .ms{font-size:16px;--ms-fill:1;--ms-wght:500}
-.stc.deck{flex:0 1 auto;max-width:38%;padding:0 10px 0 6px;background:transparent}
-.stc.deck span:last-child{overflow:hidden;text-overflow:ellipsis}
 .stc.flag{color:var(--fc);background:color-mix(in oklab,var(--fc) 16%,var(--sch));padding:0 6px}
 .stc.star{color:var(--tertiary);background:var(--tertiary-container);padding:0 6px}
 .stc.pop{animation:stcPop var(--d-xfs) var(--e-xfs) both}
@@ -1337,7 +1336,6 @@ button.stc:active{border-radius:8px}
 .page.study.oled.framed .st-card{box-shadow:inset 0 0 0 1px oklch(0.30 0.012 var(--h))}
 .page.study.oled.framed .st-card[data-flag]{box-shadow:inset 0 0 0 3px var(--flagc)}
 .page.study.oled .stc,.page.study.oled .st-clock.idle{background:oklch(0.20 0.01 var(--h))}
-.page.study.oled .stc.deck{background:transparent}
 .page.study.oled .st-pause{background:rgb(0 0 0 / .78)}
 
 /* swipe to answer: the card follows the finger, tints toward the grade, then flies off */
@@ -4501,7 +4499,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.7' };
+const APP = { name: 'Engram', version: '2.1.8' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -7529,24 +7527,6 @@ function deckAvatar(d, cls = '') {
   return `<span class="shp ${cls}" style="--c:${d.c}">${shapeSvg((d.shape || 0) + 1)}${ic(icons[(d.shape || 0) % icons.length], 'fill')}</span>`;
 }
 
-/* ---- wavy progress: linear (study) ---- */
-function wavyLinear(p, w) {
-  w = Math.max(40, w || 300); const H = 24, mid = 12, amp = 3, wl = 30, gap = 6;
-  const x = clamp(p, 0, 1) * w;
-  let d = ''; const end = Math.max(0, x);
-  for (let px = -wl; px <= end + wl; px += 2) d += (px === -wl ? 'M' : 'L') + px.toFixed(1) + ',' + (mid + amp * Math.sin(px / wl * Math.PI * 2)).toFixed(2);
-  const trackStart = Math.min(w, x + gap + (x > 0 ? 2 : 0));
-  return `<svg viewBox="0 0 ${w} ${H}" preserveAspectRatio="none" aria-hidden="true">
-    <defs><clipPath id="wclip"><rect x="0" y="0" width="${Math.max(0, x - 1)}" height="${H}"/></clipPath></defs>
-    ${trackStart < w - 2 ? `<line x1="${trackStart}" y1="${mid}" x2="${w - 2}" y2="${mid}" stroke="var(--secondary-container)" stroke-width="4" stroke-linecap="round"/>
-    <circle cx="${w - 2}" cy="${mid}" r="2" fill="var(--primary)"/>` : ''}
-    <g clip-path="url(#wclip)"><path class="wave" d="${d}" fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round" style="${reduced() ? '' : 'animation:waveMove 1.2s linear infinite'}"/></g>
-  </svg>`;
-}
-const waveStyle = document.createElement('style');
-waveStyle.textContent = '@keyframes waveMove{from{transform:translateX(0)}to{transform:translateX(30px)}}';
-document.head.appendChild(waveStyle);
-
 /* ---- wavy progress: circular (home hero) ---- */
 const Ring = {
   raf: 0, el: null, p: 0, shown: 0, phase: 0,
@@ -8268,13 +8248,12 @@ function renderStudyShell(el, pg) {
   el.innerHTML = `
     <div class="st-top">
       <button class="ib" data-act="back" aria-label="Close">${ic('close')}</button>
-      <div class="st-prog" data-prog></div>
+      <div class="st-counts" data-counts></div>
       <span class="st-timer bd-s muted" data-timer></span>
       ${Prefs.sessionClock ? `<button class="st-clock" data-act="st-clock" data-clock aria-label="Pause">${ic('timer')}<span>0:00</span></button>` : ''}
       <button class="ib" data-act="st-undo" aria-label="Undo">${ic('undo')}</button>
       <button class="ib" data-act="st-menu" aria-label="More">${ic('more_vert')}</button>
     </div>
-    <div class="st-counts" data-counts></div>
     <div class="st-stage" data-stage></div>
     <div class="st-bottom" data-bottom></div>`;
 }
@@ -8283,23 +8262,16 @@ function paintStudyTop(pg, pop = '') {
   const kind = cur ? Sched.kindOf(cur) : null;
   const hl = k => kind === k ? 'cur' : '';
   const cbox = pg.el.querySelector('[data-counts]'); if (!cbox) return;
-  /* the card's own state, at a glance: which subdeck it came from, its flag, whether the note is marked */
-  let deck = '', flag = '', star = '';
+  /* the card's own state, at a glance: its flag, whether the note is marked */
+  let flag = '', star = '';
   if (cur) {
-    const home = Col.decks[cur.odid || cur.did], mine = Col.decks[pg.state.did];
-    if (home && mine && home.id !== mine.id) {
-      const rest = home.name.startsWith(mine.name + '::') ? home.name.slice(mine.name.length + 2) : home.name;
-      deck = `<span class="stc deck" title="${esc(home.name)}">${ic('subdirectory_arrow_right')}<span>${esc(rest.split('::').pop())}</span></span>`;
-    }
     const f = cur.flags & 7;
     if (f) flag = `<button class="stc flag ${pop === 'flag' ? 'pop' : ''}" style="--fc:${FLAGS[f].c}" data-act="st-flags" aria-label="Flag: ${FLAGS[f].name}. Change">${ic('flag')}</button>`;
     const n = Col.notes.get(cur.nid);
     if (n && n.tags.some(t => t.toLowerCase() === 'marked')) star = `<button class="stc star ${pop === 'star' ? 'pop' : ''}" data-act="st-mark" aria-label="Marked. Unmark">${ic('star')}</button>`;
   }
   const counts = Prefs.showCounts ? `<span class="cnt n ${c.n ? '' : 'off'} ${hl('n')}">${c.n}</span><span class="cnt l ${c.l ? '' : 'off'} ${hl('l')}">${c.l}</span><span class="cnt r ${c.r ? '' : 'off'} ${hl('r')}">${c.r}</span>` : '';
-  cbox.innerHTML = `${deck}${deck && counts ? '<i class="gap"></i>' : ''}${counts}${(flag || star) && (counts || deck) ? '<i class="gap"></i>' : ''}${flag}${star}`;
-  const left = c.n + c.l + c.r, p = pg.answered / Math.max(1, pg.answered + left);
-  const box = pg.el.querySelector('[data-prog]'); box.innerHTML = wavyLinear(p, box.clientWidth);
+  cbox.innerHTML = `${counts}${(flag || star) && counts ? '<i class="gap"></i>' : ''}${flag}${star}`;
 }
 async function showCard(pg, card) {
   pg.card = card; pg.revealed = false; pg.shownAt = Date.now(); pg.typed = undefined;
