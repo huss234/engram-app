@@ -4507,7 +4507,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.11' };
+const APP = { name: 'Engram', version: '2.1.12' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -5753,8 +5753,13 @@ const Sync = {
     if (!entries.length && !this.st.scmBump && !this.outConflicts.length) return { sent: 0 };
     const batch = Math.random().toString(36).slice(2, 10);
     const { files, sent } = this.buildJournal(entries, batch);
+    /* something added and removed again before it reached GitHub (a tag, a setting, a deck): nothing to send
+       and no delete follows, so it would sit in the outbox forever as "1 waiting" */
+    const kept = new Set(sent.map(s => s.e));
+    const gone = entries.filter(e => !kept.has(e) && !(e.k.startsWith('x:') && Col.media.has(e.k.slice(2))));
+    if (gone.length) { for (const e of gone) this.dropPending(e.k); await this.finishApply(this.newCtx()); }
+    if (!sent.length && !this.st.scmBump && !this.outConflicts.length) return { sent: 0 };
     const additions = files.map(f => ({ path: f.path, contents: B64.text(f.text) }));
-    if (!additions.length) { for (const { e } of sent) this.dropPending(e.k); await this.finishApply(this.newCtx()); return { sent: 0 }; }
     if (this.st.scmBump || entries.some(e => e.k.startsWith('m:') && Col.models[e.k.slice(2)] && modelSig(Col.models[e.k.slice(2)]) !== this.shadow.ms.get(e.k.slice(2)))) {
       additions.push({ path: 'meta.json', contents: B64.text(JSON.stringify(this.metaJson({ scm: Date.now() }))) });
     }
