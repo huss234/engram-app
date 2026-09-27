@@ -1308,8 +1308,8 @@ label.li{cursor:text}
 
 /* ============================================================
    STUDY SESSION 2 — look, full screen, swipe, status row
-   Everything here is device-only presentation (Prefs), never
-   written into the collection, the note CSS or an export.
+   Everything here is per-device presentation (Prefs), kept for
+   this device only (see DevPrefs), never in the note CSS or an Anki export.
    ============================================================ */
 @property --swp{syntax:'<number>';inherits:true;initial-value:0}
 
@@ -4554,7 +4554,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.13' };
+const APP = { name: 'Engram', version: '2.1.14' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -4595,7 +4595,7 @@ function fmtDateTime(ms) { return new Date(ms).toLocaleString(undefined, { year:
 function fmtBytes(n) { return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
 const safeName = s => String(s || 'Engram').replace(/::/g, ' - ').replace(/[\\/:*?"<>|]+/g, '').trim().slice(0, 80) || 'Engram';
 
-/* ---------------- app preferences (per device, not part of the collection) ---------------- */
+/* ---------------- app preferences (per device; saved on GitHub for this device only, see DevPrefs) ---------------- */
 const Prefs = {
   theme: 'system', hue: 265, textScale: 1, haptics: true, showIntervals: true, showCounts: true, cardNight: true,
   cardZoom: 1, browseMode: 'cards', browseSort: 'due', browseDesc: false, collapsed: {}, lastSearch: '', seenWelcome: false,
@@ -6056,6 +6056,7 @@ const Sync = {
         this.checkClock(); this.checkToken();
         if (res.sent || res.received) this.log1(`Synced · ${plural(res.sent, 'change')} sent, ${fmtNum(res.received)} received`);
         this.lastResult = res;
+        try { DevPrefs.afterSync(); } catch (e) { console.warn('device settings', e); }
       } catch (e) {
         this.lastError = e; res.error = e;
         if (e.kind !== 'offline' && e.kind !== 'net') this.log1('Problem: ' + (e.kind === 'rate' ? `GitHub asked us to wait ${Math.max(1, Math.ceil((e.until - Date.now()) / 60000))} min` : e.message));
@@ -6894,8 +6895,16 @@ Object.assign(ACT_EXTRA, {
   'setup-later': b => { Sync.st.seenSetup = true; Sync.saveState(); closePage(pageOf(b)); },
   'setup-back': b => { const p = pageOf(b); p.state.step = 'form'; p.refresh(); },
   'setup-go': b => setupGo(pageOf(b), b.dataset.mode),
-  'sync-rename': async () => { const v = await promptDlg('Name of this device', Sync.st.deviceName, { help: 'Shown in the sync log and in GitHub commit messages.' }); if (v && v.trim()) { Sync.st.deviceName = v.trim().slice(0, 40); await Sync.saveState(); refreshSettings(); } },
+  'sync-rename': async () => { const v = await promptDlg('Name of this device', Sync.st.deviceName, { help: 'Shown in the sync log and in GitHub commit messages.' }); if (v && v.trim()) { Sync.st.deviceName = v.trim().slice(0, 40); await Sync.saveState(); DevPrefs.publish(); refreshSettings(); } },
   'sync-qr': () => showSetupQR(),
+  'devprefs-copy': b => {
+    const list = DevPrefs.others();
+    if (!list.length) return snack('No other device has saved its settings yet');
+    openMenu(b, list.slice(0, 8).map(r => ({ icon: r.form === 'tablet' ? 'tablet' : 'smartphone', label: `${r.name || 'Device'} · ${r.at ? fmtDate(r.at) : ''}`, run: async () => {
+      if (!await confirmDlg('Use these settings here?', `Theme, study keys, study layout and the other settings of ${r.name || 'that device'} replace the ones on this device. ${r.name || 'That device'} keeps its own.`, 'Use', false, 'devices')) return;
+      DevPrefs.apply(r); snack('Settings copied to this device');
+    } })));
+  },
   'sync-token': () => openTokenRenew(),
   'sync-choice': () => resolveChoices(),
   'sync-conflicts': () => openConflicts(),
@@ -6907,7 +6916,7 @@ Object.assign(ACT_EXTRA, {
   'sync-signout': () => signOut(),
   'sync-free': async () => { if (!await confirmDlg('Free up space?', 'Cached images that are safe on GitHub are removed from this device. They download again when a card needs them.', 'Free up')) return; const r = await MediaCache.freeAll(); snack(`Freed ${fmtBytes(r.bytes)} (${plural(r.n, 'file')})`); await Store.estimate(); refreshSettings(); },
   'sync-space': async () => { await Store.estimate(); const persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : false; openDialog({ icon: 'sd_storage', title: 'Space on this device', body: `<div class="infotable"><div><span class="muted">Used by Engram</span><span>${fmtBytes(Store.usage || 0)}</span></div><div><span class="muted">Cached images</span><span>${fmtBytes(MediaCache.total)} (${fmtNum(MediaCache.meta.size)})</span></div><div><span class="muted">Available</span><span>${Store.quota ? fmtBytes(Store.quota) : '—'}</span></div><div><span class="muted">Protected from clean-up</span><span>${persisted ? 'Yes' : 'No'}</span></div></div>`, actions: [{ label: 'OK', value: true }] }); },
-  'sync-cachelimit': async () => { const v = await promptDlg('Image cache limit (MB)', String(Math.round(Sync.st.cacheLimit / 1048576)), { help: 'Images beyond this are removed from the device, oldest first, and downloaded again when needed.' }); const n = parseInt(v, 10); if (n >= 50) { Sync.st.cacheLimit = n * 1048576; await Sync.saveState(); MediaCache.evict(); refreshSettings(); } },
+  'sync-cachelimit': async () => { const v = await promptDlg('Image cache limit (MB)', String(Math.round(Sync.st.cacheLimit / 1048576)), { help: 'Images beyond this are removed from the device, oldest first, and downloaded again when needed.' }); const n = parseInt(v, 10); if (n >= 50) { Sync.st.cacheLimit = n * 1048576; await Sync.saveState(); DevPrefs.publish(); MediaCache.evict(); refreshSettings(); } },
   'sync-repos': async () => { try { for (const r of Sync.st.mediaRepos) { const x = await GH.repo(r); if (x) Sync.st.repoSizes[r] = (x.size || 0) * 1024; } Sync.st.repoCheckedAt = Date.now(); await Sync.saveState(); refreshSettings(); snack('Sizes updated. GitHub updates them with some delay.'); } catch (e) { snack(e.message); } },
 });
 
@@ -6950,7 +6959,47 @@ function applyTheme() {
   const meta = $('meta[name="theme-color"]'); if (meta) meta.content = getComputedStyle(r).getPropertyValue('--bg').trim() || '#f3f0f7';
 }
 const isDark = () => Prefs.theme === 'dark' || (Prefs.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-const savePrefs = debounce(() => Store.kvSet('prefs', { ...Prefs }).catch(() => { }), 300);
+const savePrefs = debounce(() => { Store.kvSet('prefs', { ...Prefs }).catch(() => { }); try { DevPrefs.publish(); } catch (e) { } }, 300);
+
+/* ---------------- this device's settings on GitHub ----------------
+   Prefs, the device name and the image cache limit are kept in the collection config under
+   engramDev_<device id>, so they sync to GitHub like any setting. Each device writes only its
+   own key, so the phone and the tablet keep their own settings. A device that starts with no
+   settings of its own (cleared browser, new install) takes back the copy saved under the same
+   name and screen size. engram* keys are removed from files exported for Anki. */
+const DevPrefs = {
+  fresh: false,   /* no settings were saved on this device before this launch */
+  key() { return 'engramDev_' + ((Sync.st && Sync.st.deviceId) || 'local'); },
+  form() { return Math.min(screen.width, screen.height) >= 600 ? 'tablet' : 'phone'; },
+  publish() {
+    if (!Col.conf || !Sync.st) return;
+    const k = this.key(), cur = Col.conf[k], prefs = { ...Prefs }, name = Sync.st.deviceName, cacheLimit = Sync.st.cacheLimit, form = this.form();
+    if (cur && cur.name === name && cur.cacheLimit === cacheLimit && cur.form === form && JSON.stringify(cur.prefs) === JSON.stringify(prefs)) return;
+    Col.conf[k] = { name, form, cacheLimit, prefs, at: Date.now() }; Col.touchMeta();
+  },
+  /* settings saved by other devices, newest first */
+  others() {
+    const own = this.key(), out = [];
+    for (const [k, v] of Object.entries(Col.conf || {})) if (k.startsWith('engramDev_') && k !== own && v && v.prefs && typeof v.prefs === 'object') out.push({ k, ...v });
+    return out.sort((a, b) => (b.at || 0) - (a.at || 0));
+  },
+  apply(rec) {
+    for (const k of Object.keys(rec.prefs)) if (k in Prefs) Prefs[k] = rec.prefs[k];
+    if (rec.cacheLimit >= 50 * 1048576) { Sync.st.cacheLimit = rec.cacheLimit; Sync.saveState().catch(() => { }); }
+    Browse.query = Prefs.lastSearch || 'deck:current';
+    applyTheme(); savePrefs.now();
+    try { if (!topPage('study')) App.refreshAll(); refreshSettings(); } catch (e) { }
+  },
+  /* after each sync: a fresh device takes back its own saved settings once, then this device's copy is kept current */
+  afterSync() {
+    if (this.fresh) {
+      this.fresh = false;
+      const same = this.others().find(r => r.name === Sync.st.deviceName && r.form === this.form());
+      if (same) { this.apply(same); snack(`Settings for ${Sync.st.deviceName} restored from GitHub`); }
+    }
+    this.publish();
+  },
+};
 
 /* ---- spring motion: turn (damping, stiffness) into a CSS linear() curve ----
    These are the Material 3 Expressive motion-scheme tokens. */
@@ -12124,6 +12173,7 @@ const SETTINGS = [
         { t: 'This device', rows: [
           { k: 'device', icon: 'smartphone', t: 'Name of this device', s: esc(Sync.st.deviceName), act: 'sync-rename', kw: 'rename' },
           { k: 'another', icon: 'qr_code_2', t: 'Set up another device', s: 'Shows a code to scan', act: 'sync-qr', kw: 'qr pair phone tablet add' },
+          { k: 'devprefs', icon: 'devices', t: 'Settings from another device', s: 'Each device keeps its own on GitHub. Copy one here', act: 'devprefs-copy', kw: 'preferences theme copy restore phone tablet own separate' },
           { k: 'token', icon: 'key', t: 'GitHub token', s: exp ? (d > 0 ? `Expires ${fmtDate(exp)} (${plural(d, 'day')})` : '<b>Expired</b>. Renew it') : 'Expiry unknown', act: 'sync-token', cls: d != null && d <= 14 ? 'warnrow' : '', kw: 'renew expire password' },
         ] },
         { t: 'Safety', rows: [
@@ -12742,7 +12792,7 @@ async function readOldEngram() {
   installSprings();
   PressLatch.install();
   IconMotion.install();
-  try { const p = await Store.kvGet('prefs'); if (p) Object.assign(Prefs, p); } catch (e) { }
+  try { const p = await Store.kvGet('prefs'); if (p) Object.assign(Prefs, p); else DevPrefs.fresh = true; } catch (e) { }
   applyTheme();
   let loaded = false;
   try { loaded = await Store.load(); } catch (e) { console.warn('load failed', e); }
@@ -12757,6 +12807,7 @@ async function readOldEngram() {
     Col.markAll(); await Store.flush();
   }
   try { await SessionLog.load(); } catch (e) { }
+  if (!DevPrefs.fresh) try { DevPrefs.publish(); } catch (e) { }
   Browse.query = Prefs.lastSearch || 'deck:current';
   Sched.unburyIfNewDay();
   App.switchTab('decks', true);
