@@ -1377,6 +1377,53 @@ button.stc:active{border-radius:8px}
 .kbdlist .k{display:flex;gap:4px;justify-content:flex-end}
 .kbdlist kbd{min-width:28px;height:28px;padding:0 8px;border-radius:8px;background:var(--schh);display:inline-grid;place-items:center;font:600 12px/1 var(--font);color:var(--on-surface)}
 .kbdlist .h{grid-column:1/-1;margin-top:8px;font-weight:600;color:var(--primary);font-size:calc(13px*var(--ts))}
+.kbdlist kbd.mine{background:var(--secondary-container);color:var(--on-secondary-container)}
+.kbdlist kbd.off{opacity:.45;text-decoration:line-through}
+
+/* study keys: the user's own key for each study action. A key is a tonal keycap with a
+   pressed-in lower edge; it pops in on a spring when set and shrinks away when removed */
+.kc{display:inline-block;min-width:36px;max-width:42vw;height:36px;padding:0 12px;border-radius:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;
+  background:var(--secondary-container);color:var(--on-secondary-container);font:600 calc(14px*var(--ts))/36px var(--font);letter-spacing:.01em;
+  box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--on-secondary-container) 16%,transparent);
+  transition:border-radius var(--d-xfs) var(--e-xfs),transform var(--d-xfs) var(--e-xfs)}
+.kb-row:active .kc{border-radius:18px;transform:scale(.94)}
+.kc.new{animation:kcIn var(--d-xds) var(--e-xds) both}
+.kc.out{animation:kcOut 150ms cubic-bezier(.4,0,1,1) both}
+@keyframes kcIn{from{opacity:0;transform:scale(.4) rotate(-12deg)}}
+@keyframes kcOut{to{opacity:0;transform:scale(.6)}}
+.kc-none{color:var(--on-surface-variant);opacity:.8}
+.kc-none.new{animation:fade var(--d-de) linear both}
+.li .lead.kg{background:var(--g);color:var(--og)}
+.kb-clear.in{animation:setIn var(--d-ds) var(--e-ds) both}
+.kb-clear.out{animation:fadeOut 150ms linear both}
+/* listening for a key: the M3 Expressive loading shape morphs inside a round container;
+   the key that arrives replaces it as a large keycap on a bouncy spring */
+.kr{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:8px 0 4px}
+.kr-stage{position:relative;width:100%;height:132px;display:grid;place-items:center}
+.kr-blob{width:128px;height:128px;border-radius:50%;display:grid;place-items:center;background:var(--primary-container);color:var(--primary);
+  transition:transform var(--d-xfs) var(--e-xfs),opacity var(--d-de) linear}
+.kr-blob .sync-ld,.kr-blob .sync-ld svg{width:76px;height:76px}
+.kr-cap{display:block;min-width:96px;max-width:100%;height:96px;padding:0 28px;border-radius:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:var(--primary);color:var(--on-primary);font:650 calc(34px*var(--ts))/96px var(--font);
+  box-shadow:inset 0 -6px 0 color-mix(in oklab,black 22%,transparent),var(--shadow);opacity:0;transform:scale(.3) rotate(-14deg);pointer-events:none}
+.kr-cap.long{font-size:calc(22px*var(--ts))}
+.kr-ok{position:absolute;top:-6px;right:-6px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
+  background:var(--tertiary-container);color:var(--on-tertiary-container);box-shadow:var(--shadow);transform:scale(0)}
+.kr-ok .ms{font-size:20px}
+.kr-capw{position:absolute;max-width:calc(100% - 16px);pointer-events:none}
+.kr[data-state="got"] .kr-blob{transform:scale(.5);opacity:0;transition:transform 180ms cubic-bezier(.4,0,1,1),opacity 150ms linear}
+.kr[data-state="got"] .kr-cap{opacity:1;transform:none;transition:transform var(--d-xfs) var(--e-xfs) 60ms,opacity var(--d-de) linear 60ms}
+.kr[data-state="got"] .kr-ok{transform:none;transition:transform var(--d-xds) var(--e-xds) 260ms}
+.kr.err .kr-blob{animation:krShake 420ms cubic-bezier(.3,0,.3,1)}
+@keyframes krShake{20%{transform:translateX(-12px)}40%{transform:translateX(9px)}60%{transform:translateX(-5px)}80%{transform:translateX(2px)}}
+.kr-held{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;color:var(--on-surface-variant)}
+.kr-held .plus{animation:fade var(--d-de) linear both}
+.kr-msg{display:flex;flex-direction:column;align-items:center;gap:6px;min-height:76px;max-width:44ch}
+.kr-msg .hl-s{margin:0}
+.kr-msg.swap{animation:krMsg var(--d-ds) var(--e-ds) both}
+@keyframes krMsg{from{opacity:0;transform:translateY(10px)}}
+.kr-foot-t{display:inline-block}
+.kr-foot-t.swap{animation:krMsg var(--d-ds) var(--e-ds) both}
 
 @media (prefers-reduced-motion:reduce){
   .stc.pop{animation:none}
@@ -4507,7 +4554,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.12' };
+const APP = { name: 'Engram', version: '2.1.13' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -4557,6 +4604,7 @@ const Prefs = {
   /* reviewer look and feel (device only, never part of the Anki collection or an Anki export; an Engram backup carries them) */
   galCols: 3,
   studyLayout: 'edge', studyOled: false, studyFullscreen: false, swipeGrade: true, swipeHinted: false, keepAwake: true,
+  studyKeys: {},   /* the user's own study keys, by action (see StudyKeys); none until they choose */
 };
 
 /* ---------------- IndexedDB store ---------------- */
@@ -7759,6 +7807,11 @@ const CARD_RUNTIME = `(function(){
     if (e.target.closest && e.target.closest('a,button,input,textarea,select,summary,details,label,[onclick],[contenteditable]')) return;
     P.EngramCard && P.EngramCard.tap();
   }, true);
+  /* keys pressed while the card has focus (after a tap) still reach the reviewer */
+  document.addEventListener('keydown', function(e){
+    var t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable]')) return;
+    try { P.EngramCard && P.EngramCard.key && P.EngramCard.key(e); } catch(err){}
+  });
   /* swipe: report a horizontal drag to the reviewer. screenX is used because the frame itself moves under the finger */
   (function(){
     var sx=0, sy=0, lock=0, on=false, dx=0;
@@ -8201,15 +8254,20 @@ function swipeReset(pg, box) {
 }
 
 function openShortcuts() {
-  const K = (keys, t) => `<span class="k">${keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')}</span><span>${t}</span>`;
+  /* a built-in key the user has given to one of their own actions is struck through */
+  const off = k => StudyKeys.claimed(k === 'Space' ? ' ' : k.toLowerCase()) ? ' class="off" title="Now one of your keys"' : '';
+  const K = (keys, t) => `<span class="k">${keys.map(k => `<kbd${off(k)}>${esc(k)}</kbd>`).join('')}</span><span>${t}</span>`;
+  const m = StudyKeys.all(), mine = StudyKeys.acts().filter(a => m[a.id]);
   openSheet({ title: 'Keyboard shortcuts', body: `<div class="kbdlist">
+    ${mine.length ? `<div class="h">Your keys</div>${mine.map(a => `<span class="k"><kbd class="mine">${esc(m[a.id].label)}</kbd></span><span>${esc(a.t)}</span>`).join('')}` : ''}
     <div class="h">Answering</div>
     ${K(['Space'], 'Show answer, then Good')}${K(['1', '2', '3', '4'], 'Again, Hard, Good, Easy')}${K(['Z'], 'Undo')}${K(['R'], 'Replay audio')}
     <div class="h">Session</div>
     ${K(['P'], 'Pause or resume the session clock')}${K(['F'], 'Full screen')}${K(['?'], 'This list')}
     <div class="h">This card</div>
     ${K(['E'], 'Edit note')}${K(['C'], 'Copy card as Markdown')}${K(['*'], 'Mark note')}${K(['Ctrl', '1–7'], 'Flag')}${K(['-'], 'Bury card')}${K(['='], 'Bury note')}${K(['@'], 'Suspend card')}${K(['!'], 'Suspend note')}
-  </div>` });
+  </div>`, foot: `<button class="btn tonal" data-act="study-keys">${ic('keyboard')}${mine.length ? 'Change your keys' : 'Choose your own keys'}</button>`,
+    onMount: (sh, api) => sh.addEventListener('click', e => { if (e.target.closest('[data-act="study-keys"]')) api.closeNow(); }) });
 }
 
 function startStudy(did) {
@@ -8229,7 +8287,10 @@ function startStudy(did) {
   Session.begin(pg, did);
   pg.keys = e => {
     if (App.pages[App.pages.length - 1] !== pg || $('#overlays').children.length || (e.target.matches && e.target.matches('input,textarea,select,[contenteditable]'))) return;
-    if (pg.finished) return;
+    /* the user's own keys come first; while paused only their pause and end keys act */
+    const own = StudyKeys.match(e);
+    if (pg.finished) { if (own === 'end') { e.preventDefault(); closePage(pg); } return; }
+    if (own && (!pg.paused || own === 'pause' || own === 'end')) { e.preventDefault(); if (!e.repeat) StudyKeys.run(pg, own); return; }
     const k = e.key;
     if (pg.paused) { if (k === ' ' || k === 'Enter' || k === 'p') { e.preventDefault(); Session.resume(pg); } return; }
     if (k === 'p') { Session.pause(pg); return; }
@@ -8254,6 +8315,7 @@ function startStudy(did) {
     enter: () => { if (!pg.revealed) reveal(pg); },
     loaded: () => { },
     drag: (dx, phase) => swipeDrag(pg, dx, phase),
+    key: e => pg.keys(e),
   };
   showCard(pg, g.card);
 }
@@ -8303,7 +8365,7 @@ async function showCard(pg, card) {
   }
   box.addEventListener('animationend', e => { if (e.target === box) box.classList.remove('in'); });
   stage.appendChild(box);
-  pg.el.querySelector('[data-bottom]').innerHTML = `<button class="btn l block tonal" data-act="st-reveal">Show answer<span class="kbd">space</span></button>`;
+  pg.el.querySelector('[data-bottom]').innerHTML = `<button class="btn l block tonal" data-act="st-reveal">Show answer${kbdHint(['reveal', 'next'], ' ', 'space')}</button>`;
   paintStudyTop(pg);
   const res = await renderCardInto(box, card, 'q', { autoplay: conf.autoplay !== false });
   pg.frame = res && res.frame;
@@ -8350,7 +8412,7 @@ async function reveal(pg) {
   const iv = Sched.buttonLabels(card);
   const show = Prefs.showIntervals;
   pg.el.querySelector('[data-bottom]').innerHTML = `<div class="grades enter">
-    ${['Again', 'Hard', 'Good', 'Easy'].map((l, i) => `<button class="g${i + 1}" data-act="st-grade" data-g="${i + 1}"><span>${l}<span class="kbd">${i + 1}</span></span>${show && iv[i] ? `<span class="iv">${iv[i]}</span>` : ''}</button>`).join('')}</div>`;
+    ${['Again', 'Hard', 'Good', 'Easy'].map((l, i) => `<button class="g${i + 1}" data-act="st-grade" data-g="${i + 1}"><span>${l}${kbdHint([l.toLowerCase()], String(i + 1), i + 1)}</span>${show && iv[i] ? `<span class="iv">${iv[i]}</span>` : ''}</button>`).join('')}</div>`;
   const sa = +conf.secondsToShowAnswer || 0;
   if (sa > 0) pg.autoTimer = setTimeout(() => {
     if (pg.card !== card || !pg.revealed) return;
@@ -8586,11 +8648,114 @@ function studyMenu(anchor, pg) {
     { icon: 'event', label: 'Set due date', run: () => studyAction(pg, 'due') },
     { icon: 'restart_alt', label: 'Reset card', run: () => studyAction(pg, 'reset') },
     { icon: 'tune', label: 'Deck options', run: () => openDeckOptions(Col.cards.get(c.id)?.odid || c.did) },
-    ...(matchMedia('(hover:hover) and (pointer:fine)').matches ? [{ icon: 'keyboard', label: 'Keyboard shortcuts', run: () => openShortcuts() }] : []),
+    matchMedia('(hover:hover) and (pointer:fine)').matches ? { icon: 'keyboard', label: 'Keyboard shortcuts', run: () => openShortcuts() } : { icon: 'keyboard', label: 'Study keys', run: () => openStudyKeys() },
     '-',
     { icon: 'delete', label: 'Delete note', danger: true, run: () => studyAction(pg, 'delete') },
   ]);
 }
+/* ---- study keys ----
+   The user's own key for each study action, chosen in Settings › Studying › Study keys.
+   None are set at first. A key is matched by its physical code plus Ctrl, Alt, Shift
+   and Meta, so it works with any keyboard layout, Bluetooth remote or page turner.
+   Set keys are checked before the built-in keys in startStudy. */
+const STUDY_KEYS = [
+  { t: 'Answering', acts: [
+    { id: 'reveal', icon: 'visibility', t: 'Show answer' },
+    { id: 'next', icon: 'keyboard_double_arrow_right', t: 'Show answer, then Good' },
+    { id: 'again', g: 'again', icon: 'close', t: 'Again' },
+    { id: 'hard', g: 'hard', icon: 'remove', t: 'Hard' },
+    { id: 'good', g: 'good', icon: 'check', t: 'Good' },
+    { id: 'easy', g: 'easy', icon: 'done_all', t: 'Easy' },
+    { id: 'undo', icon: 'undo', t: 'Undo' },
+    { id: 'replay', icon: 'replay', t: 'Replay audio' },
+  ] },
+  { t: 'Session', acts: [
+    { id: 'pause', icon: 'pause', t: 'Pause or resume' },
+    { id: 'full', icon: 'fullscreen', t: 'Full screen' },
+    { id: 'end', icon: 'logout', t: 'End session' },
+  ] },
+  { t: 'This card', acts: [
+    { id: 'edit', icon: 'edit', t: 'Edit note' },
+    { id: 'copy', icon: 'content_copy', t: 'Copy card' },
+    { id: 'mark', icon: 'star', t: 'Mark note' },
+    ...FLAGS.slice(1).map((f, i) => ({ id: 'flag' + (i + 1), flag: i + 1, t: `${f.name} flag` })),
+    { id: 'flag0', flag: 0, t: 'Remove flag' },
+    { id: 'bury-card', icon: 'visibility_off', t: 'Bury card' },
+    { id: 'bury-note', icon: 'hide_source', t: 'Bury note' },
+    { id: 'suspend-card', icon: 'pause_circle', t: 'Suspend card' },
+    { id: 'suspend-note', icon: 'block', t: 'Suspend note' },
+  ] },
+];
+const StudyKeys = {
+  MODS: { Control: 'Ctrl', Alt: 'Alt', AltGraph: 'AltGr', Shift: 'Shift', Meta: 'Meta', OS: 'Meta' },
+  NAMES: { ' ': 'Space', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', PageUp: 'Page up', PageDown: 'Page down', ContextMenu: 'Menu',
+    MediaPlayPause: 'Play/Pause', MediaTrackNext: 'Next track', MediaTrackPrevious: 'Previous track', MediaStop: 'Stop',
+    AudioVolumeUp: 'Volume up', AudioVolumeDown: 'Volume down', AudioVolumeMute: 'Mute', BrowserBack: 'Back', BrowserForward: 'Forward' },
+  /* the built-in keys in startStudy, by the action they do */
+  BUILTIN: { ' ': 'next', Enter: 'next', 1: 'again', 2: 'hard', 3: 'good', 4: 'easy', z: 'undo', u: 'undo', e: 'edit', c: 'copy', '-': 'bury-card', '=': 'bury-note',
+    '@': 'suspend-card', '!': 'suspend-note', '*': 'mark', r: 'replay', F5: 'replay', p: 'pause', f: 'full', '?': 'help' },
+  all() { const m = Prefs.studyKeys; return m && typeof m === 'object' ? m : (Prefs.studyKeys = {}); },
+  count() { return Object.keys(this.all()).length; },
+  acts() { return STUDY_KEYS.flatMap(s => s.acts); },
+  act(id) { return this.acts().find(a => a.id === id); },
+  name(id) { return id === 'help' ? 'Keyboard shortcuts' : (this.act(id) || {}).t || id; },
+  isMod(e) { return Object.prototype.hasOwnProperty.call(this.MODS, e.key); },
+  /* what identifies a key press: its physical code, with the modifiers held (a lone modifier is its own key) */
+  combo(e) {
+    const id = e.code && e.code !== 'Unidentified' ? e.code : e.key && !/^(Unidentified|Process|Dead)$/.test(e.key) ? 'key:' + e.key : e.keyCode && e.keyCode !== 229 ? 'kc:' + e.keyCode : '';
+    if (!id || this.isMod(e)) return id;
+    return (e.ctrlKey ? 'C+' : '') + (e.altKey ? 'A+' : '') + (e.shiftKey ? 'S+' : '') + (e.metaKey ? 'M+' : '') + id;
+  },
+  held(e) { return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta'].filter(Boolean); },
+  keyName(e) {
+    const k = e.key || '', c = e.code || '';
+    if (this.isMod(e)) return (/Right$/.test(c) ? 'Right ' : '') + this.MODS[k];
+    if (this.NAMES[k]) return this.NAMES[k];
+    if (/^Numpad\d$/.test(c)) return 'Num ' + c.slice(6);
+    /* with Ctrl, Alt or Meta the character can change, so letters and digits are named by their key */
+    if (e.ctrlKey || e.altKey || e.metaKey || k.length !== 1) { if (/^Key[A-Z]$/.test(c)) return c.slice(3); if (/^Digit\d$/.test(c)) return c.slice(5); }
+    if (k.length === 1) return k.toUpperCase();
+    if (k && !/^(Unidentified|Process|Dead)$/.test(k)) return k.replace(/([a-z])([A-Z0-9])/g, '$1 $2');
+    return c ? c.replace(/([a-z])([A-Z0-9])/g, '$1 $2') : 'Key ' + e.keyCode;
+  },
+  label(e) {
+    if (this.isMod(e)) return this.keyName(e);
+    /* Shift is part of a symbol such as ? or !, so it is not named again */
+    const sym = (e.key || '').length === 1 && !/[a-z0-9 ]/i.test(e.key);
+    return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && !sym && 'Shift', e.metaKey && 'Meta', this.keyName(e)].filter(Boolean).join(' + ');
+  },
+  match(e) { const c = this.combo(e), m = this.all(); if (!c) return null; for (const id in m) if (m[id] && m[id].code === c) return id; return null; },
+  /* a built-in key now taken by one of the user's keys (the built-ins read the plain key) */
+  claimed(k) { return Object.values(this.all()).some(b => b && b.key === k && !b.chord); },
+  /* the key shown on a reviewer button: the user's own, else the built-in unless it was taken */
+  hint(ids, bk, bl) { const m = this.all(); for (const id of ids) if (m[id]) return m[id].label; return this.claimed(bk) ? '' : String(bl); },
+  set(id, e) {
+    const m = this.all(), code = this.combo(e), label = this.label(e), mod = this.isMod(e);
+    const moved = Object.keys(m).find(x => x !== id && m[x] && m[x].code === code);
+    if (moved) delete m[moved];
+    const chord = !mod && (e.ctrlKey || e.altKey || e.metaKey);
+    const b = !chord && !mod && Object.prototype.hasOwnProperty.call(this.BUILTIN, e.key) ? this.BUILTIN[e.key] : null;
+    m[id] = { code, label, key: e.key, chord };
+    savePrefs();
+    return { label, moved, built: b && b !== id ? b : null };
+  },
+  remove(id) { delete this.all()[id]; savePrefs(); },
+  run(pg, id) {
+    if (id === 'end') return closePage(pg);
+    if (id === 'pause') return Session.toggle(pg);
+    if (pg.paused) return;
+    const g = { again: 1, hard: 2, good: 3, easy: 4 }[id];
+    if (g) return grade(pg, g);
+    if (/^flag\d$/.test(id)) return setFlagCur(pg, +id.slice(4));
+    const f = {
+      reveal: () => reveal(pg), next: () => pg.revealed ? grade(pg, 3) : reveal(pg), undo: () => doUndo(pg), replay: () => replay(pg),
+      full: () => toggleFullscreen(pg), edit: () => editCurrent(pg), copy: () => copyCardMarkdown(pg),
+    }[id];
+    return f ? f() : studyAction(pg, id);
+  },
+};
+const kbdHint = (ids, bk, bl) => { const h = StudyKeys.hint(ids, bk, bl); return h ? `<span class="kbd">${esc(h)}</span>` : ''; };
+
 function finishStudy(pg) {
   pg.finished = true; pg.card = null; clearInterval(pg.tick); clearTimeout(pg.autoTimer); Awake.off(); StudyLook.tint(pg);
   if (pg.sess) { if (pg.paused) Session.resume(pg); pg.sess.active = Session.active(pg); pg.stoppedAt = Date.now(); clearInterval(pg.sessTick); pg.sessTick = null; SessionLog.put(pg.sess); }
@@ -10784,7 +10949,7 @@ function renderPkgImport(el, pg) {
       ${(eng.version || 0) > EngramIO.VERSION ? `<div class="issue warn" style="margin-top:8px">${ic('warning')}<span>A newer version of Engram made this backup. Update Engram first, or some of its data may not come back.</span></div>` : ''}` : ''}
     </div>
     ${eng ? `${Col.notes.size ? '<div class="bd-s muted" style="margin:20px 4px 0">Everything here is replaced by the backup, Engram’s own data included.</div>' : ''}
-      <div class="group" style="margin:16px 0 0"><div class="li optrow"><span class="tx"><span class="t1" style="display:block">Restore app settings</span><span class="t2" style="display:block">Theme, color, text size and reviewer look of the device that made it</span></span>${swHtml('data-imp="prefs"', o.prefs)}</div></div>` : ''}
+      <div class="group" style="margin:16px 0 0"><div class="li optrow"><span class="tx"><span class="t1" style="display:block">Restore app settings</span><span class="t2" style="display:block">Theme, color, text size, reviewer look and study keys of the device that made it</span></span>${swHtml('data-imp="prefs"', o.prefs)}</div></div>` : ''}
     ${colpkg && Col.notes.size && !eng ? `<div class="sec-t" style="margin:20px 4px 10px">What to do</div>${segHtml('imp-mode', [['replace', 'Replace my collection'], ['merge', 'Merge into it']], s.mode)}
       <div class="bd-s muted" style="margin:8px 4px 0">${s.mode === 'replace' ? 'Everything here is replaced by the file, exactly like Anki does with a .colpkg. Back up first if unsure.' : 'Notes are matched by their ID. New notes, cards and history are added.'}</div>` : ''}
     ${s.mode === 'merge' ? `<div class="sec-t" style="margin:20px 4px 10px">Options</div><div class="group" style="margin:0">
@@ -12002,6 +12167,9 @@ const SETTINGS = [
         { k: 'fullscreen', type: 'pref', pref: 'studyFullscreen', icon: 'fullscreen', t: 'Study in full screen', s: 'Hides the browser and system bars when a session starts', kw: 'immersive full screen hide bars' },
         { k: 'awake', type: 'pref', pref: 'keepAwake', icon: 'light_mode', t: 'Keep screen on', s: 'The screen stays on while a session is open', kw: 'wake lock sleep dim' },
       ] },
+      { t: 'Keys', rows: [
+        { k: 'studykeys', icon: 'keyboard', t: 'Study keys', s: StudyKeys.count() ? `${plural(StudyKeys.count(), 'key')} set` : 'Choose your own key for each action', act: 'study-keys', nav: 1, kw: 'keyboard shortcut shortcuts hotkey remote clicker page turner bluetooth map bind custom' },
+      ] },
       { t: 'Goals and insights', rows: [
         { k: 'goal', icon: 'flag', t: 'Daily goal', s: esc(goalText()), act: 'ix-goal', kw: 'target minutes cards streak motivation' },
         { k: 'insights', icon: 'auto_graph', t: 'Open insights', s: 'Time, speed, streaks and your study calendar', act: 'open-insights', nav: 1, kw: 'statistics stats progress calendar' },
@@ -12226,6 +12394,110 @@ function openSettings(cat, key) {
   return pg;
 }
 function refreshSettings() { for (const p of App.pages) if (p.name === 'settings' || p.name.startsWith('settings-')) p.refresh(); }
+
+/* ---------------- study keys page ---------------- */
+function renderStudyKeys(el, pg) {
+  const s = pg.state, m = StudyKeys.all(), n = StudyKeys.count(), intro = !s.shown, fresh = s.fresh;
+  const clrIn = n && s.shown && !s.hadClear; s.shown = true; s.fresh = null; s.hadClear = !!n;
+  const lead = a => a.g ? `<span class="lead kg" style="--g:var(--g-${a.g});--og:var(--on-g-${a.g})">${ic(a.icon)}</span>`
+    : a.flag != null ? `<span class="lead plain"${a.flag ? ` style="color:${FLAGS[a.flag].c}"` : ''}>${ic(a.flag ? 'flag' : 'outlined_flag', a.flag ? 'fill' : '')}</span>`
+    : `<span class="lead plain">${ic(a.icon)}</span>`;
+  const row = a => {
+    const b = m[a.id], nw = fresh === a.id || fresh === '*';
+    return `<button class="li kb-row ${nw && b ? 'flash' : ''}" data-act="key-rec" data-ka="${a.id}" aria-label="${esc(a.t)}. ${b ? 'Key: ' + esc(b.label) : 'No key'}">${lead(a)}<span class="tx"><span class="t1" style="display:block">${esc(a.t)}</span></span>
+      <span class="trail">${b ? `<kbd class="kc ${nw ? 'new' : ''}">${esc(b.label)}</kbd>` : `<span class="kc-none ${nw ? 'new' : ''}">Not set</span>`}</span></button>`;
+  };
+  el.innerHTML = `${topbar({ title: 'Study keys' })}<div class="scroll">
+    <div class="set-hero"><span class="shp xl ${intro ? 'intro' : ''}" style="--c:150">${shapeSvg(2)}${ic('keyboard', 'fill')}</span>
+      <h1 class="hl-l">Study keys</h1><p class="bd-m muted">Tap an action, then press the key you want for it, on a keyboard, a Bluetooth remote or a page turner. A key you set here comes before Engram’s built-in keys.</p></div>
+    <div class="${intro ? 'stagger' : ''}">${STUDY_KEYS.map((sec, i) => `<div style="--i:${i}"><div class="sec-t">${esc(sec.t)}</div><div class="group">${sec.acts.map(row).join('')}</div></div>`).join('')}
+    ${n ? `<div class="kb-clear ${clrIn ? 'in' : ''}" style="--i:3"><div class="set-gap"></div><div class="group">${li({ lead: `<span class="lead plain">${ic('delete_sweep')}</span>`, t1: 'Clear all keys', t2: `${plural(n, 'key')} set`, act: 'keys-clear', cls: 'danger' })}</div></div>` : ''}</div>
+  </div>`;
+}
+function openStudyKeys() {
+  const ex = topPage('settings-keys'); if (ex && ex === App.pages[App.pages.length - 1]) return ex;
+  return pushPage('settings-keys', renderStudyKeys);
+}
+/* listen for the key of one action: the shape morphs until a key arrives, then the key pops in as a keycap */
+function recordStudyKey(id, pg) {
+  const a = StudyKeys.act(id); if (!a) return;
+  let state = 'listen', held = null, heldL = [], auto = 0, after = null;
+  const has = !!StudyKeys.all()[id];
+  const api = openSheet({ title: `Key for ${a.t}`,
+    body: `<div class="kr" data-state="listen"><div class="kr-stage"><span class="kr-blob">${syncLd()}</span>
+      <span class="kr-capw"><kbd class="kr-cap"></kbd><span class="kr-ok">${ic('check')}</span></span></div>
+      <div class="kr-held" aria-hidden="true"></div><div class="kr-msg" aria-live="polite"></div></div>`,
+    foot: `${has ? `<button class="btn text danger" data-kr="clear">${ic('backspace')}Remove key</button><span class="grow"></span>` : ''}<button class="btn text" data-kr="cancel"><span class="kr-foot-t">Cancel</span></button>`,
+    onClose: () => { window.removeEventListener('keydown', down, true); window.removeEventListener('keyup', up, true); clearTimeout(auto); if (after) after(); } });
+  const sh = api.el, kr = sh.querySelector('.kr'), cap = sh.querySelector('.kr-cap'), msg = sh.querySelector('.kr-msg'), hb = sh.querySelector('.kr-held');
+  const say = (t, sub, swap = true) => {
+    msg.innerHTML = `<h2 class="hl-s">${esc(t)}</h2><span class="bd-m muted">${esc(sub)}</span>`;
+    if (swap) { msg.classList.remove('swap'); void msg.offsetWidth; msg.classList.add('swap'); }
+  };
+  /* modifiers held so far, each popping in as it is pressed */
+  const showHeld = e => {
+    const l = StudyKeys.held(e); if (l.join() === heldL.join()) return;
+    hb.innerHTML = l.map(x => `<kbd class="kc ${heldL.includes(x) ? '' : 'new'}">${x}</kbd>`).join('<span class="plus">+</span>') + (l.length ? '<span class="plus">+ …</span>' : '');
+    heldL = l;
+  };
+  const take = e => {
+    heldL = []; hb.innerHTML = '';
+    if (!StudyKeys.combo(e)) {
+      buzz(20); kr.classList.remove('err'); void kr.offsetWidth; kr.classList.add('err');
+      say('Engram can’t read that key', 'It didn’t send a key code. Try another key.'); return;
+    }
+    const r = StudyKeys.set(id, e);
+    state = 'got'; kr.dataset.state = 'got'; buzz(10);
+    cap.textContent = r.label; cap.classList.toggle('long', r.label.length > 5);
+    const notes = [];
+    if (r.moved) notes.push(`It was the key for ${StudyKeys.name(r.moved)}, which now has none.`);
+    if (r.built) notes.push(`It is also built in for ${StudyKeys.name(r.built)}. Yours comes first.`);
+    say('Saved', notes.join(' ') || `${a.t} is now on ${r.label}.`);
+    after = () => { pg.state.fresh = id; if (pg.el.isConnected) pg.refresh(); };
+    if (notes.length) { const t = sh.querySelector('.kr-foot-t'); t.textContent = 'Done'; t.classList.add('swap'); }
+    else auto = setTimeout(() => api.close(), 900);
+  };
+  const down = e => {
+    e.preventDefault(); e.stopPropagation();
+    if (state === 'got') { if (!e.repeat && (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ')) api.close(); return; }
+    if (e.repeat) return;
+    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { api.close(); return; }
+    if (StudyKeys.isMod(e)) { held = e.code || e.key; showHeld(e); return; }
+    held = null; take(e);
+  };
+  /* a modifier pressed and let go with nothing else becomes the key itself */
+  const up = e => {
+    e.preventDefault(); e.stopPropagation();
+    if (state !== 'listen') return;
+    if (held && StudyKeys.isMod(e) && (e.code || e.key) === held) { held = null; take(e); return; }
+    showHeld(e);
+  };
+  say('Press a key', 'Any key on a keyboard, remote or page turner. Esc cancels.', false);
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  window.addEventListener('keydown', down, true); window.addEventListener('keyup', up, true);
+  sh.querySelector('[data-kr="cancel"]').onclick = () => api.close();
+  const clr = sh.querySelector('[data-kr="clear"]');
+  if (clr) clr.onclick = () => {
+    StudyKeys.remove(id); buzz(6);
+    after = () => {
+      const chip = pg.el.querySelector(`[data-ka="${id}"] .kc`); if (chip) chip.classList.add('out');
+      pg.el.querySelector('.kb-clear:not(.out)')?.classList.toggle('out', !StudyKeys.count());
+      setTimeout(() => { pg.state.fresh = id; if (pg.el.isConnected) pg.refresh(); }, 150);
+    };
+    api.close();
+  };
+}
+Object.assign(ACT_EXTRA, {
+  'study-keys': () => { buzz(4); openStudyKeys(); },
+  'key-rec': b => { buzz(4); recordStudyKey(b.dataset.ka, pageOf(b)); },
+  'keys-clear': async b => {
+    const pg = pageOf(b), n = StudyKeys.count(); if (!pg || !n) return;
+    if (!await confirmDlg('Clear all keys?', `${plural(n, 'key')} will be removed. Engram’s built-in keys keep working.`, 'Clear', true, 'keyboard')) return;
+    Prefs.studyKeys = {}; savePrefs(); buzz(8);
+    pg.el.querySelectorAll('.kc').forEach(c => c.classList.add('out')); pg.el.querySelector('.kb-clear')?.classList.add('out');
+    setTimeout(() => { pg.state.fresh = '*'; if (pg.el.isConnected) pg.refresh(); }, 150);
+  },
+});
 function checkDatabase() {
   let fixed = 0; const notes = Col.notes, fix = [];
   for (const c of [...Col.cards.values()]) {
