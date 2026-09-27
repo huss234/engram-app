@@ -4499,7 +4499,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.8' };
+const APP = { name: 'Engram', version: '2.1.9' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -7431,7 +7431,8 @@ function openMenu(anchor, items) {
     if (it === '-') return `<hr style="--i:${i}">`;
     if (it.tiles) return `<div class="mtiles" role="group" style="--i:${i}">${it.tiles.map((t, j) => { const on = !!t.checked(); return `<button type="button" data-t="${i}.${j}" aria-pressed="${on}" class="${t.dim && t.dim() ? 'dim' : ''}">${ic(on ? (t.iconOn || t.icon) : t.icon)}<span>${esc(t.label)}</span></button>`; }).join('')}</div>`;
     if (it.toggle) { const on = !!it.checked(); return `<button role="menuitemcheckbox" aria-checked="${on}" data-i="${i}" class="tog" style="--i:${i}">${ic(it.icons[+on])}<span class="lbl">${esc(it.label)}</span><span class="sw" aria-hidden="true" aria-checked="${on}"></span></button>`; }
-    return `<button role="menuitem" data-i="${i}" class="${it.danger ? 'danger' : ''}" style="--i:${i}">${ic(it.icon)}<span class="lbl">${esc(it.label)}</span></button>`;
+    const icon = it.color ? `<span class="ms fill" style="color:${it.color}">${it.icon}</span>` : ic(it.icon);
+    return `<button role="menuitem" data-i="${i}" class="${it.danger ? 'danger' : ''}" style="--i:${i}">${icon}<span class="lbl">${esc(it.label)}</span></button>`;
   };
   wrap.innerHTML = `<div class="menu" role="menu">${items.map(row).join('')}</div>`;
   $('#overlays').appendChild(wrap);
@@ -8561,7 +8562,7 @@ function studyMenu(anchor, pg) {
     { icon: 'edit', label: 'Edit note', run: () => editCurrent(pg) },
     { icon: 'content_copy', label: 'Copy card', run: () => copyCardMarkdown(pg) },
     { icon: 'info', label: 'Card info', run: () => openCardInfo(c.id) },
-    { icon: 'flag', label: 'Flag…', run: () => openMenu(anchor, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', label: f.name, run: () => setFlagCur(pg, i) }))) },
+    { icon: 'flag', label: 'Flag…', run: () => openMenu(anchor, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', color: i ? f.c : '', label: f.name, run: () => setFlagCur(pg, i) }))) },
     { icon: marked ? 'star' : 'star_outline', label: marked ? 'Unmark note' : 'Mark note', run: () => studyAction(pg, 'mark') },
     { icon: 'replay', label: 'Replay audio', run: () => replay(pg) },
     '-',
@@ -8859,7 +8860,7 @@ function browseSelMenu(anchor) {
     { icon: 'drive_file_move', label: 'Change deck', run: () => pickDeck('Move to deck', null, did => { Sched.changeDeck ? Sched.changeDeck(cids, did) : moveCards(cids, did); done(`Moved ${plural(cids.length, 'card')}`); }) },
     { icon: 'new_label', label: 'Add tags', run: async () => { const v = await promptDlg('Add tags', '', { help: 'Separate tags with spaces' }); if (!v) return; editTags(selectedNoteIds(), v.split(/\s+/).filter(Boolean), []); done('Tags added'); } },
     { icon: 'label_off', label: 'Remove tags', run: async () => { const v = await promptDlg('Remove tags', '', { help: 'Separate tags with spaces' }); if (!v) return; editTags(selectedNoteIds(), [], v.split(/\s+/).filter(Boolean)); done('Tags removed'); } },
-    { icon: 'flag', label: 'Flag', run: () => openMenu(anchor, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', label: f.name, run: () => { Sched.setFlag(cids, i); done(); } }))) },
+    { icon: 'flag', label: 'Flag', run: () => openMenu(anchor, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', color: i ? f.c : '', label: f.name, run: () => { Sched.setFlag(cids, i); done(); } }))) },
     { icon: 'pause_circle', label: 'Toggle suspend', run: () => { Sched.toggleSuspend(cids); done(); } },
     { icon: 'visibility_off', label: 'Toggle bury', run: () => { const all = cids.every(id => Col.cards.get(id).queue < -1); if (all) Sched.unbury(cids); else Sched.bury(cids); done(); } },
     { icon: 'event', label: 'Set due date', run: async () => { const v = await promptDlg('Set due date', '0', { help: '0 = today, 3-7 = random in range, add ! to also set the interval' }); if (v === null) return; if (!Sched.setDueDate(cids, v)) return snack('Could not read that'); done('Due date set'); } },
@@ -12173,7 +12174,7 @@ const ACT = {
   'st-menu': (b) => studyMenu(b, pageOf(b)),
   'st-reveal': (b) => reveal(pageOf(b)),
   'st-grade': (b) => grade(pageOf(b), +b.dataset.g),
-  'st-flags': (b) => { const p = pageOf(b); if (p && p.card) openMenu(b, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', label: f.name, run: () => setFlagCur(p, i) }))); },
+  'st-flags': (b) => { const p = pageOf(b); if (p && p.card) openMenu(b, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', color: i ? f.c : '', label: f.name, run: () => setFlagCur(p, i) }))); },
   'st-mark': (b) => { const p = pageOf(b); if (p) studyAction(p, 'mark'); },
   /* browse */
   'br-open': async (b) => {
