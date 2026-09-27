@@ -4467,7 +4467,7 @@ const AnkiIO = (() => {
       ], indexes: INDEXES,
     });
   }
-  async function buildPackage(opts, getMedia, onProgress) {
+  async function buildPackage(opts, getMedia, onProgress, extraFiles = null) {
     const g = gatherExport(opts);
     const dbBytes = buildCollectionBytes(g);
     const zip = new ZipOut();
@@ -4482,6 +4482,7 @@ const AnkiIO = (() => {
     }
     await zip.add('media', JSON.stringify(map));
     await zip.add('meta', new PB.W().int(1, 2).finish());
+    if (extraFiles) for (const [name, data] of Object.entries(extraFiles)) await zip.add(name, data, { deflate: true });
     const blob = zip.finish();
     return { blob, bytes: blob, counts: { notes: g.notes.length, cards: g.cards.length, revlog: g.revlog.length, media: i, missingMedia: miss } };
   }
@@ -4499,7 +4500,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.9' };
+const APP = { name: 'Engram', version: '2.1.10' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -4546,7 +4547,7 @@ const Prefs = {
   cardZoom: 1, browseMode: 'cards', browseSort: 'due', browseDesc: false, collapsed: {}, lastSearch: '', seenWelcome: false,
   /* insights layer (device only, never part of the Anki collection) */
   statsView: 'insights', insightsRange: 30, goalType: 'min', goalValue: 20, sessionClock: true,
-  /* reviewer look and feel (device only, never part of the Anki collection or an export) */
+  /* reviewer look and feel (device only, never part of the Anki collection or an Anki export; an Engram backup carries them) */
   galCols: 3,
   studyLayout: 'edge', studyOled: false, studyFullscreen: false, swipeGrade: true, swipeHinted: false, keepAwake: true,
 };
@@ -6444,7 +6445,7 @@ async function syncNow() {
 }
 function backupNag() {
   const last = Math.max(Col.conf.lastBackup || 0, Sync.st.lastBackupNag || 0);
-  if (Col.notes.size && Date.now() - last > 14 * DAY) { Sync.st.lastBackupNag = Date.now(); Sync.saveState(); setTimeout(() => snack('Tip: keep a backup copy (.colpkg) in Google Drive too.', 'Download', () => ACT.backup(), 9000), 4500); }
+  if (Col.notes.size && Date.now() - last > 14 * DAY) { Sync.st.lastBackupNag = Date.now(); Sync.saveState(); setTimeout(() => snack('Tip: keep a backup copy (.engram) in Google Drive too.', 'Download', () => ACT.backup(), 9000), 4500); }
 }
 
 /* ---------------- the sync sheet ---------------- */
@@ -6467,7 +6468,7 @@ function openSyncSheet() {
     ${rc ? '<div class="bd-s muted" style="margin:6px 2px 0">Cloud totals are from the last full upload or tidy-up, so they can lag behind a little.</div>' : ''}
     <div style="display:flex;flex-direction:column;gap:8px;margin:16px 0">
       <button class="btn tonal block" data-act="sync-verify">${ic('fact_check')}Verify everything</button>
-      <button class="btn outlined block" data-act="backup">${ic('download')}Download backup (.colpkg)</button>
+      <button class="btn outlined block" data-act="backup">${ic('download')}Download backup (.engram)</button>
       <button class="btn text block" data-act="set-cat" data-cat="sync">${ic('settings')}Sync settings</button>
     </div>
     <div class="sec-t" style="margin:8px 2px">Sync log</div>
@@ -9509,7 +9510,7 @@ function templateMenu(anchor, pg) {
    names, then words in the card text, on two axes (system × discipline)
    like the USMLE content outline. Captions, favorites, albums and manual
    topics live in the collection config (32 small engramGal_* keys), so
-   they sync with GitHub and travel in a .colpkg. Thumbnails are
+   they sync with GitHub and travel in an Engram backup (.engram). Thumbnails are
    device-only and live in their own IndexedDB database.
    ===================================================================== */
 const GAL_SYS = [
@@ -10712,7 +10713,7 @@ function openImport(file = null) {
       <div class="dropzone" data-drop>
         <span class="ms lg" style="color:var(--primary)">upload_file</span>
         <div class="tt-m">Choose a file</div>
-        <div class="bd-m muted">Anki packages (.apkg, .colpkg), plain text or CSV (.txt, .csv, .tsv), and old Engram JSON files.</div>
+        <div class="bd-m muted">Engram backups (.engram), Anki packages (.apkg, .colpkg), plain text or CSV (.txt, .csv, .tsv), and old Engram JSON files.</div>
         <button class="btn m" data-act="imp-pick">${ic('folder_open')}Browse files</button>
       </div>
       <div class="sec-t">How to export from Anki</div>
@@ -10736,10 +10737,11 @@ async function readImportFile(pg, f) {
   try {
     const head = new Uint8Array(await f.slice(0, 16).arrayBuffer());
     s.fileName = f.name;
-    if (AnkiIO.isZip(head) || /\.(apkg|colpkg|anki2|anki21)$/i.test(f.name)) {
+    if (AnkiIO.isZip(head) || /\.(apkg|colpkg|anki2|anki21|engram)$/i.test(f.name)) {
       s.pkg = await AnkiIO.openPackage(f, f.name);
+      s.engram = await EngramIO.read(s.pkg.zip); if (s.engram) s.pkg.kind = 'colpkg';
       s.mode = s.pkg.kind === 'colpkg' ? (Col.notes.size ? 'replace' : 'replace') : 'merge';
-      s.opts = { withSched: true, updateNotes: 'newer', updateNotetypes: 'newer', updateCards: true };
+      s.opts = { withSched: true, updateNotes: 'newer', updateNotetypes: 'newer', updateCards: true, prefs: true };
     } else {
       const text = new TextDecoder().decode(new Uint8Array(await f.arrayBuffer()));
       const t = text.trim();
@@ -10753,11 +10755,11 @@ function renderPkgImport(el, pg) {
   const s = pg.state, k = s.pkg, o = s.opts;
   const decks = Object.values(k.decks).filter(d => !d.dyn && (d.name !== 'Default' || k.cards.some(c => c.did == d.id))).map(d => d.name).sort();
   const reviewed = k.cards.filter(c => c.type > 0).length;
-  const colpkg = k.kind === 'colpkg';
+  const colpkg = k.kind === 'colpkg', eng = s.engram;
   el.innerHTML = `${topbar({ title: 'Import', always: true })}
   <div class="scroll"><div class="pad">
-    <div class="card" style="margin-top:4px"><div class="row"><span class="ms lg" style="color:var(--primary)">${colpkg ? 'inventory_2' : 'package_2'}</span>
-      <div class="grow"><div class="tt-m" style="overflow-wrap:anywhere">${esc(s.fileName)}</div><div class="bd-s muted">${colpkg ? 'Anki collection' : 'Anki deck package'} · ${k.schema === 18 ? 'new format (2.1.50+)' : 'classic format'}</div></div></div>
+    <div class="card" style="margin-top:4px"><div class="row"><span class="ms lg" style="color:var(--primary)">${eng ? 'backup' : colpkg ? 'inventory_2' : 'package_2'}</span>
+      <div class="grow"><div class="tt-m" style="overflow-wrap:anywhere">${esc(s.fileName)}</div><div class="bd-s muted">${eng ? `Engram backup · ${eng.exportedAt ? fmtDateTime(eng.exportedAt) : 'no date'}${eng.app ? ' · Engram ' + esc(eng.app) : ''}` : `${colpkg ? 'Anki collection' : 'Anki deck package'} · ${k.schema === 18 ? 'new format (2.1.50+)' : 'classic format'}`}</div></div></div>
       <div class="tiles" style="margin:16px 0 0">
         <div class="tile"><span class="num">${fmtNum(k.notes.length)}</span><span class="cap">notes</span></div>
         <div class="tile"><span class="num">${fmtNum(k.cards.length)}</span><span class="cap">cards · ${fmtNum(reviewed)} studied</span></div>
@@ -10765,9 +10767,13 @@ function renderPkgImport(el, pg) {
         <div class="tile"><span class="num">${fmtNum(k.media.length)}</span><span class="cap">media files</span></div>
       </div>
       <div class="bd-s muted" style="margin-top:12px">${plural(decks.length, 'deck')}: ${decks.slice(0, 8).map(esc).join(', ')}${decks.length > 8 ? '…' : ''}<br>${plural(Object.keys(k.models).length, 'note type')}, ${plural(Object.keys(k.dconf).length, 'options preset')}${k.conf.fsrs ? ' · FSRS on' : ''}</div>
-      ${!k.revlog.length && !reviewed && k.cards.length ? `<div class="issue warn" style="margin-top:8px">${ic('warning')}<span>This file has no scheduling. In Anki, tick <b>Include scheduling information</b> when you export if you want your progress.</span></div>` : ''}
+      ${!eng && !k.revlog.length && !reviewed && k.cards.length ? `<div class="issue warn" style="margin-top:8px">${ic('warning')}<span>This file has no scheduling. In Anki, tick <b>Include scheduling information</b> when you export if you want your progress.</span></div>` : ''}
+      ${eng ? `<div class="bd-s muted" style="margin-top:8px">Engram’s own data: ${EngramIO.summary(eng).map(esc).join(', ') || 'none'}</div>
+      ${(eng.version || 0) > EngramIO.VERSION ? `<div class="issue warn" style="margin-top:8px">${ic('warning')}<span>A newer version of Engram made this backup. Update Engram first, or some of its data may not come back.</span></div>` : ''}` : ''}
     </div>
-    ${colpkg && Col.notes.size ? `<div class="sec-t" style="margin:20px 4px 10px">What to do</div>${segHtml('imp-mode', [['replace', 'Replace my collection'], ['merge', 'Merge into it']], s.mode)}
+    ${eng ? `${Col.notes.size ? '<div class="bd-s muted" style="margin:20px 4px 0">Everything here is replaced by the backup, Engram’s own data included.</div>' : ''}
+      <div class="group" style="margin:16px 0 0"><div class="li optrow"><span class="tx"><span class="t1" style="display:block">Restore app settings</span><span class="t2" style="display:block">Theme, color, text size and reviewer look of the device that made it</span></span>${swHtml('data-imp="prefs"', o.prefs)}</div></div>` : ''}
+    ${colpkg && Col.notes.size && !eng ? `<div class="sec-t" style="margin:20px 4px 10px">What to do</div>${segHtml('imp-mode', [['replace', 'Replace my collection'], ['merge', 'Merge into it']], s.mode)}
       <div class="bd-s muted" style="margin:8px 4px 0">${s.mode === 'replace' ? 'Everything here is replaced by the file, exactly like Anki does with a .colpkg. Back up first if unsure.' : 'Notes are matched by their ID. New notes, cards and history are added.'}</div>` : ''}
     ${s.mode === 'merge' ? `<div class="sec-t" style="margin:20px 4px 10px">Options</div><div class="group" style="margin:0">
       <div class="li optrow"><span class="tx"><span class="t1" style="display:block">Import scheduling</span><span class="t2" style="display:block">Keep intervals, due dates, FSRS memory and review history</span></span>${swHtml('data-imp="withSched"', o.withSched)}</div>
@@ -10795,6 +10801,7 @@ async function runPkgImport(pg) {
     if (s.mode === 'replace') {
       const old = new Map(Col.media);
       r = await AnkiIO.replaceCollection(k, (n, b) => Store.putMedia(n, b), prog);
+      if (s.engram) EngramIO.apply(s.engram, { prefs: s.opts.prefs });
       /* images of the old collection go to the media trash, never straight away */
       const now = Date.now(); for (const [n, e] of old) if (!Col.media.has(n)) Sync.trash.set(n, { ...e, deleted: now, mod: now });
     }
@@ -10802,7 +10809,7 @@ async function runPkgImport(pg) {
     Col.dirty.all = true; await Store.flush();
     if (Sync.enabled()) { Sync.mediaPending = await MediaSync.pendingCount(); Sync.refreshState(); Sync.run({ reason: 'auto' }); }
     s.busy = null; closePage(pg); App.refreshAll(); Browse.textCache.clear();
-    const body = r.replaced ? `${plural(r.notes, 'note')}, ${plural(r.cards, 'card')}, ${plural(r.revlog, 'review')} and ${plural(r.media, 'media file')} imported.`
+    const body = r.replaced ? `${plural(r.notes, 'note')}, ${plural(r.cards, 'card')}, ${plural(r.revlog, 'review')} and ${plural(r.media, 'media file')} imported.${s.engram ? ' Engram’s own data was restored too.' : ''}`
       : `<div class="infotable">${[['Notes added', r.notesAdded], ['Notes updated', r.notesUpdated], ['Notes unchanged', r.notesSkipped], ['Cards added', r.cardsAdded], ['Card progress updated', r.cardsUpdated], ['Reviews added', r.revlog], ['Media files', r.media], ['Decks added', r.decksAdded], ['Note types added', r.notetypesAdded], ['Note types updated', r.notetypesUpdated], ...(r.conflicts ? [['Skipped (note type changed)', r.conflicts]] : [])].map(([a, b]) => `<div><span class="muted">${a}</span><span>${fmtNum(b)}</span></div>`).join('')}</div>`;
     openDialog({ icon: 'task_alt', title: 'Import finished', body, actions: [{ label: 'OK', value: true }] });
   } catch (e) {
@@ -10936,15 +10943,68 @@ function migrateOldState(S) {
 }
 
 /* ------------------------------------------------------------------ EXPORT */
+/* ---------------- the Engram backup (.engram) ----------------
+   A .colpkg (the whole collection, classic anki21 format) plus engram.json with everything an
+   Anki file cannot hold: the engram* settings (session clock times, gallery captions, favorites,
+   albums and topics, daily goal, picture size), the extra fields Engram keeps on notes, cards and
+   reviews (real answer time, session stamps), the media index (so images left out of the file
+   come back from GitHub) and the app settings of the device that made it. */
+const EngramIO = {
+  FORMAT: 'engram-backup', VERSION: 1,
+  extras(list, cols) { const out = {}; for (const o of list) { let x = null; for (const k in o) if (k !== 'id' && !cols.includes(k) && o[k] !== undefined) (x || (x = {}))[k] = o[k]; if (x) out[o.id] = x; } return out; },
+  merge(o, x, cols) { if (!o || !x || typeof x !== 'object') return; for (const k of Object.keys(x)) if (k !== 'id' && k !== '__proto__' && !cols.includes(k)) o[k] = x[k]; },
+  manifest() {
+    const conf = {}; for (const k of Object.keys(Col.conf)) if (k.startsWith('engram')) conf[k] = Col.conf[k];
+    return {
+      format: this.FORMAT, version: this.VERSION, app: APP.version, exportedAt: Date.now(),
+      counts: { notes: Col.notes.size, cards: Col.cards.size, revlog: Col.revlog.length, media: Col.media.size, sessions: SessionLog.list.length },
+      conf,
+      extras: { notes: this.extras(Col.notes.values(), Enc.NOTE), cards: this.extras(Col.cards.values(), Enc.CARD), revlog: this.extras(Col.revlog, Enc.REV) },
+      media: [...Col.media.entries()],
+      prefs: { ...Prefs },
+    };
+  },
+  async read(zip) {
+    try { const f = zip && zip.file('engram.json'); if (!f) return null; const o = JSON.parse(await f.async('string')); return o && o.format === this.FORMAT ? o : null; }
+    catch (e) { return null; }
+  },
+  /* runs after AnkiIO.replaceCollection has put the collection in place */
+  apply(e, { prefs = true } = {}) {
+    for (const [k, v] of Object.entries(e.conf || {})) if (k.startsWith('engram')) Col.conf[k] = v;
+    const ex = e.extras || {};
+    for (const [id, x] of Object.entries(ex.notes || {})) this.merge(Col.notes.get(+id), x, Enc.NOTE);
+    for (const [id, x] of Object.entries(ex.cards || {})) this.merge(Col.cards.get(+id), x, Enc.CARD);
+    const rv = ex.revlog || {}; if (Object.keys(rv).length) for (const r of Col.revlog) if (rv[r.id]) this.merge(r, rv[r.id], Enc.REV);
+    /* images left out of the file keep their index entry when GitHub has them */
+    for (const [n, m] of Array.isArray(e.media) ? e.media : []) if (!Col.media.has(n) && m && m.sha1 && m.repo) Col.media.set(n, m);
+    if (prefs && e.prefs) { for (const k of Object.keys(e.prefs)) if (k in Prefs) Prefs[k] = e.prefs[k]; savePrefs(); applyTheme(); }
+    Insights.bust(); Col.markAll();
+  },
+  /* what the backup holds beyond the Anki collection, in words */
+  summary(e) {
+    const c = e.conf || {}, out = []; let sess = 0, gal = 0;
+    for (const [k, v] of Object.entries(c)) { if (k.startsWith('engramSess_') && Array.isArray(v)) sess += v.length; else if (k.startsWith('engramGal_') && v) gal += Object.keys(v).length; }
+    const rt = Object.values((e.extras || {}).revlog || {}).filter(x => x && x.rt != null).length;
+    const alb = Array.isArray(c.engramGalAlbums) ? c.engramGalAlbums.length : 0;
+    if (sess) out.push(plural(sess, 'study session'));
+    if (rt) out.push(`real time of ${plural(rt, 'review')}`);
+    if (gal) out.push(`${plural(gal, 'picture')} with captions, favorites or topics`);
+    if (alb) out.push(plural(alb, 'album'));
+    if (c.engramGoal) out.push('daily goal');
+    if (e.prefs) out.push('app settings');
+    return out;
+  },
+};
 function openExport({ kind = 'colpkg', deckId = null, noteIds = null } = {}) {
   const st = { kind: noteIds ? 'apkg' : kind, deckId: deckId || (noteIds ? null : (Col.decks[Col.conf.curDeck] && !Col.decks[Col.conf.curDeck].dyn ? Col.conf.curDeck : null)), noteIds, withSched: true, withMedia: true, html: true, all: !deckId && !noteIds };
   if (kind === 'apkg' && deckId) st.all = false;
   pushPage('export', (el) => {
-    const needsScope = st.kind !== 'colpkg';
+    const needsScope = st.kind !== 'colpkg' && st.kind !== 'engram';
     el.innerHTML = `${topbar({ title: 'Export' })}
     <div class="scroll"><h1 class="hl-l big-title">Export</h1>
     <div class="pad">
-      <div class="group" style="margin:0">${[['colpkg', 'inventory_2', 'Anki Collection Package (.colpkg)', 'Everything: all decks, note types, options, progress and media. Import in Anki to replace its collection.'],
+      <div class="group" style="margin:0">${[...(st.noteIds ? [] : [['engram', 'backup', 'Engram backup (.engram)', 'Everything, including what only Engram keeps: session times, real answer times, gallery captions and albums, daily goal and app settings. Import it here to restore.']]),
+      ['colpkg', 'inventory_2', 'Anki Collection Package (.colpkg)', 'All decks, note types, options, progress and media, for Anki. Import in Anki to replace its collection.'],
       ['apkg', 'package_2', 'Anki Deck Package (.apkg)', 'One deck or all decks. Merges into an existing Anki collection.'],
       ['notes', 'description', 'Notes in plain text (.txt)', 'Fields and tags, tab-separated, with Anki headers'],
       ['cards', 'notes', 'Cards in plain text (.txt)', 'Question and answer as they appear']].map(([k, i, t, s]) => `<button class="li ${st.kind === k ? 'picked' : ''}" data-kind="${k}"><span class="lead ${st.kind === k ? '' : 'plain'}">${ic(i)}</span><span class="tx"><span class="t1">${t}</span><span class="t2" style="display:block">${s}</span></span>${st.kind === k ? `<span class="trail">${ic('check_circle', 'fill')}</span>` : ''}</button>`).join('')}</div>
@@ -10952,13 +11012,13 @@ function openExport({ kind = 'colpkg', deckId = null, noteIds = null } = {}) {
       ${st.noteIds ? `<div class="bd-m muted" style="margin:20px 4px">${plural(st.noteIds.length, 'selected note')}</div>` : ''}
       <div class="group" style="margin:16px 0 0">
         ${st.kind === 'apkg' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include scheduling information</span><span class="t2" style="display:block">Intervals, due dates, FSRS memory and review history</span></span>${swHtml('data-ex="withSched"', st.withSched)}</div>` : ''}
-        ${st.kind === 'apkg' || st.kind === 'colpkg' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include media</span><span class="t2" style="display:block">${fmtNum(Col.media.size)} files stored on this device</span></span>${swHtml('data-ex="withMedia"', st.withMedia)}</div>` : ''}
+        ${st.kind === 'apkg' || st.kind === 'colpkg' || st.kind === 'engram' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include media</span><span class="t2" style="display:block">${fmtNum(Col.media.size)} files stored on this device</span></span>${swHtml('data-ex="withMedia"', st.withMedia)}</div>` : ''}
         ${st.kind === 'notes' || st.kind === 'cards' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include HTML and media references</span></span>${swHtml('data-ex="html"', st.html)}</div>` : ''}
       </div>
       <button class="btn l block" data-act="ex-go" style="margin-top:24px">${ic('ios_share')}Export</button>
       ${st.kind === 'apkg' ? `<button class="btn m tonal block" data-act="ex-parts" style="margin-top:8px">${ic('splitscreen')}Export in parts (about 2,000 notes each)</button>` : ''}
       ${st.kind === 'colpkg' ? `<button class="btn m tonal block" data-act="export-media-zip" style="margin-top:8px">${ic('folder_zip')}Media folder as .zip</button>` : ''}
-      <div class="bd-s muted" style="margin:12px 4px">Files are written in the classic “anki21” format. Every Anki and AnkiDroid version can import them, FSRS data included.</div>
+      <div class="bd-s muted" style="margin:12px 4px">${st.kind === 'engram' ? 'Engram backups are for Engram: import one on any device to get everything back. Without media, images still come back from GitHub when sync is on.' : 'Files are written in the classic “anki21” format. Every Anki and AnkiDroid version can import them, FSRS data included.'}</div>
     </div></div>`;
     el.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { st.kind = b.dataset.kind; topPage('export').refresh(); });
     el.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); st[b.dataset.ex] = on; });
@@ -10998,7 +11058,7 @@ async function exportMediaZip() {
 async function runExport(st) {
   await Store.flush();
   const deck = st.deckId && !st.all ? Col.decks[st.deckId] : null;
-  const base = st.kind === 'colpkg' ? `collection-${new Date().toISOString().slice(0, 10)}` : st.noteIds ? 'selected-notes' : deck ? safeName(deck.name) : 'All decks';
+  const base = st.kind === 'engram' ? `engram-backup-${new Date().toISOString().slice(0, 10)}` : st.kind === 'colpkg' ? `collection-${new Date().toISOString().slice(0, 10)}` : st.noteIds ? 'selected-notes' : deck ? safeName(deck.name) : 'All decks';
   if (st.kind === 'notes' || st.kind === 'cards') {
     let nids;
     if (st.noteIds) nids = st.noteIds; else { const ids = deck ? new Set(Col.deckAndChildIds(deck.id)) : null; nids = [...new Set([...Col.cards.values()].filter(c => !ids || ids.has(c.did) || ids.has(c.odid)).map(c => c.nid))]; }
@@ -11008,11 +11068,12 @@ async function runExport(st) {
   const wait = openSheet({ title: 'Building package', body: `<div class="empty">${loaderHtml()}<div class="bd-m muted" data-prog>Collecting cards…</div></div>` });
   startLoaders(wait.el); await nextFrame(); await sleep(30);
   try {
-    const r = await AnkiIO.buildPackage({ kind: st.kind, deckId: st.all ? null : st.deckId, noteIds: st.noteIds, withSched: st.kind === 'colpkg' ? true : st.withSched, withMedia: st.withMedia }, n => Media.bytes(n), f => { const e = wait.el.querySelector('[data-prog]'); if (e) e.textContent = `Adding media ${Math.round(f * 100)}%`; });
+    const eng = st.kind === 'engram';
+    const r = await AnkiIO.buildPackage({ kind: eng ? 'colpkg' : st.kind, deckId: st.all ? null : st.deckId, noteIds: st.noteIds, withSched: st.kind === 'colpkg' || eng ? true : st.withSched, withMedia: st.withMedia }, n => Media.bytes(n), f => { const e = wait.el.querySelector('[data-prog]'); if (e) e.textContent = `Adding media ${Math.round(f * 100)}%`; }, eng ? { 'engram.json': JSON.stringify(EngramIO.manifest()) } : null);
     wait.closeNow();
     if (r.counts.missingMedia) snack(`${plural(r.counts.missingMedia, 'image')} could not be downloaded and were left out`);
-    const res = await saveFile(`${base}.${st.kind}`, r.blob);
-    reportSave(res, st.kind === 'colpkg' ? 'Collection' : 'Deck package');
+    const res = await saveFile(`${base}.${st.kind}`, eng ? new Blob([r.blob], { type: 'application/octet-stream' }) : r.blob);
+    reportSave(res, eng ? 'Backup' : st.kind === 'colpkg' ? 'Collection' : 'Deck package');
     if (res.ok) { Col.conf.lastBackup = Date.now(); Col.dirty.meta = true; }
   } catch (e) { wait.closeNow(); console.error(e); openDialog({ icon: 'error', title: 'Export failed', body: esc(e.message || String(e)), actions: [{ label: 'OK', value: true }] }); }
 }
@@ -11113,28 +11174,64 @@ function renderAnkiStats(el) {
    INSIGHTS — Engram's own statistics, layered on top of Anki's data.
    Nothing here writes to the collection. Everything is derived from the
    revlog (the same rows Anki writes, synced and imported like any other),
-   plus one device-only extra: the wall-clock study sessions recorded by
-   the session clock, kept under the IndexedDB key "sessions".
-   Exported .apkg / .colpkg files are unchanged by this layer.
+   plus the wall-clock study sessions recorded by the session clock, kept
+   in the collection config under engramSess_* keys so they sync too.
+   Exported .apkg / .colpkg files are unchanged by this layer; an Engram
+   backup (.engram) carries all of it.
    ===================================================================== */
 const IX = { GAP: 30 * MIN, KEEP: 4000 };
 /* real time on a card: the uncapped Engram value when there is one, else what Anki recorded */
 const rtOf = r => r.rt != null ? r.rt : r.time;
 
-/* ---------------- recorded sessions (this device only) ---------------- */
+/* ---------------- recorded sessions: in the collection config under engramSess_<device>_<month>
+   keys, so they sync to GitHub like any setting. Each device writes only its own keys, so two
+   devices never overwrite each other's sessions. engram* keys are removed from files exported for Anki ---------------- */
 const SessionLog = {
-  list: [],
-  async load() { try { const v = await Store.kvGet('sessions'); if (Array.isArray(v)) this.list = v.filter(s => s && s.n > 0).sort((a, b) => a.start - b.start); } catch (e) { } },
-  put(s) {
-    if (!s || !s.n) return;
-    const rec = { id: s.id, start: s.start, end: s.end, active: Math.round(s.active), did: s.did, n: s.n, g: [...s.g], newN: s.newN, t: s.t };
-    const i = this.list.findIndex(x => x.id === s.id);
-    if (i >= 0) this.list[i] = rec; else this.list.push(rec);
-    if (this.list.length > IX.KEEP) this.list.splice(0, this.list.length - IX.KEEP);
-    Insights.bust(); this.save();
+  parts: [], all: [],
+  get list() {
+    const c = Col.conf || {}, parts = []; for (const k in c) if (k.startsWith('engramSess_') && Array.isArray(c[k])) parts.push(c[k]);
+    if (parts.length !== this.parts.length || parts.some((p, i) => p !== this.parts[i])) { this.parts = parts; this.all = parts.flat().filter(s => s && s.n > 0).sort((a, b) => a.start - b.start); }
+    return this.all;
   },
-  drop(id) { const i = this.list.findIndex(x => x.id === id); if (i >= 0) { this.list.splice(i, 1); Insights.bust(); this.save(); } },
-  save: debounce(() => Store.kvSet('sessions', SessionLog.list).catch(() => { }), 800),
+  prefix() { return 'engramSess_' + ((Sync.st && Sync.st.deviceId) || 'local') + '_'; },
+  ownKeys() { const p = this.prefix(); return Object.keys(Col.conf).filter(k => k.startsWith(p)).sort(); },
+  async load() {
+    /* the device id names this device's keys, so it has to stay the same from launch to launch */
+    try { if (!(await Store.kvGet('sync'))) await Sync.saveState(); } catch (e) { }
+    /* sessions recorded before they synced were kept only on this device, under the IndexedDB key "sessions" */
+    try {
+      const v = await Store.kvGet('sessions');
+      if (Array.isArray(v) && v.length) {
+        const have = new Set(this.list.map(s => s.id));
+        for (const s of v) if (s && s.n > 0 && !have.has(s.id)) this.write(s);
+        this.trim(); Col.touchMeta(); await Store.flush();
+        if (!Store.isDirty()) await Store.kvSet('sessions', null);
+      }
+    } catch (e) { }
+  },
+  write(s) {
+    const rec = { id: s.id, start: s.start, end: s.end, active: Math.round(s.active), did: s.did, n: s.n, g: [...s.g], newN: s.newN, t: s.t };
+    const k = this.prefix() + monthOf(s.start), arr = (Col.conf[k] || []).filter(x => x.id !== s.id);
+    arr.push(rec); arr.sort((a, b) => a.start - b.start); Col.conf[k] = arr;
+  },
+  /* at most IX.KEEP sessions per device: the oldest go first */
+  trim() {
+    const ks = this.ownKeys(); let n = ks.reduce((a, k) => a + Col.conf[k].length, 0);
+    for (const k of ks) { if (n <= IX.KEEP) break; const cut = Math.min(n - IX.KEEP, Col.conf[k].length), rest = Col.conf[k].slice(cut); n -= cut; if (rest.length) Col.conf[k] = rest; else delete Col.conf[k]; }
+  },
+  put(s) {
+    if (!s || !s.n || !Col.conf) return;
+    this.write(s); this.trim();
+    Insights.bust(); Col.touchMeta();
+  },
+  drop(id) {
+    for (const k of this.ownKeys()) {
+      const arr = Col.conf[k]; if (!arr.some(x => x.id === id)) continue;
+      const rest = arr.filter(x => x.id !== id); if (rest.length) Col.conf[k] = rest; else delete Col.conf[k];
+      Insights.bust(); Col.touchMeta(); return;
+    }
+  },
+  save: debounce(() => Store.flush(), 800),
 };
 
 /* ---------------- formatting ---------------- */
@@ -11564,7 +11661,7 @@ function renderInsights(host) {
     <div class="ix-recs">${recs.map(([i, c, v, l]) => `<div class="ix-rec"><span class="shp" style="--c:${c}">${shapeSvg((c % 5) + 1)}${ic(i, 'fill')}</span><b>${v}</b><span class="bd-s muted">${esc(l)}</span></div>`).join('')}</div></section>`;
   host.innerHTML = `<div class="ix-bar"><div class="pad ix-ctl">${scopeSeg}</div>${chips}</div>
     <div class="ix-grid">${hero}${legacyNote}${highlights}${cal}${timeChart}${pace}${rhythm}${decksSec}${sessions}${growth}${coming}${sinkSec}${records}</div>
-    <p class="bd-s muted ix-note">These insights are worked out from your review history, the same records Anki keeps, so they travel with your collection. Session clock times stay on this device. Nothing here changes what you export to Anki.</p>`;
+    <p class="bd-s muted ix-note">These insights are worked out from your review history, the same records Anki keeps, so they travel with your collection. Session clock times sync to GitHub too, and an Engram backup (.engram) keeps them. Nothing here changes what you export to Anki.</p>`;
   wireBars(host);
 }
 
@@ -11627,7 +11724,7 @@ function ixAbout() {
   openDialog({ icon: 'info', title: 'How time is counted', body: `<div style="display:flex;flex-direction:column;gap:10px">
     <span><b>Time on a card</b> runs from the moment the card appears until you answer it, with no upper limit. Only the pause button stops it.</span>
     <span><b>The session clock</b> is a stopwatch: it starts with the session and runs until you end it, including time spent away from the app. Only the pause button stops it.</span>
-    <span><b>Anki compatibility.</b> Anki keeps its own time field, limited by each preset’s “Maximum answer seconds”. Engram fills that field exactly as Anki would and keeps the real time alongside it. The real time syncs to GitHub with your reviews; files you export for Anki carry only Anki’s value. Reviews imported from Anki only ever had the limited value.</span></div>`, actions: [{ label: 'Got it', value: true }] });
+    <span><b>Anki compatibility.</b> Anki keeps its own time field, limited by each preset’s “Maximum answer seconds”. Engram fills that field exactly as Anki would and keeps the real time alongside it. The real time syncs to GitHub with your reviews and is kept in an Engram backup (.engram); files you export for Anki carry only Anki’s value. Reviews imported from Anki only ever had the limited value.</span></div>`, actions: [{ label: 'Got it', value: true }] });
 }
 
 /* ---------------- home widget: momentum ---------------- */
@@ -11881,9 +11978,9 @@ const SETTINGS = [
         { k: 'notetypes', icon: 'description', t: 'Note types', s: 'Fields, card templates and styling (CSS)', act: 'open-notetypes', nav: 1, kw: 'template css fields' },
       ] },
       { t: 'Import and export', rows: [
-        { k: 'import', icon: 'upload_file', t: 'Import', s: '.apkg, .colpkg, text or CSV', act: 'import', kw: 'anki open file' },
-        { k: 'export', icon: 'ios_share', t: 'Export', s: 'To Anki or plain text', act: 'export', kw: 'share save' },
-        { k: 'backup', icon: 'backup', t: 'Back up now', s: Col.conf.lastBackup ? 'Last: ' + fmtDateTime(Col.conf.lastBackup) : 'Saves a .colpkg file', act: 'backup', kw: 'colpkg download' },
+        { k: 'import', icon: 'upload_file', t: 'Import', s: '.engram, .apkg, .colpkg, text or CSV', act: 'import', kw: 'anki open file restore backup' },
+        { k: 'export', icon: 'ios_share', t: 'Export', s: 'Engram backup, Anki or plain text', act: 'export', kw: 'share save engram' },
+        { k: 'backup', icon: 'backup', t: 'Back up now', s: Col.conf.lastBackup ? 'Last: ' + fmtDateTime(Col.conf.lastBackup) : 'Saves an .engram file with everything', act: 'backup', kw: 'engram download' },
         { k: 'mediazip', icon: 'folder_zip', t: 'Media folder as .zip', s: 'All images, for Anki’s collection.media folder on a computer', act: 'export-media-zip', kw: 'images pictures' },
       ] },
     ],
@@ -12146,7 +12243,7 @@ const ACT = {
   ]),
   import: () => openImport(),
   export: () => openExport({ kind: 'colpkg' }),
-  backup: () => runExport({ kind: 'colpkg', withMedia: true, withSched: true, all: true }),
+  backup: () => runExport({ kind: 'engram', withMedia: true, withSched: true, all: true }),
   'add-note': () => openEditor({}),
   'add-note-deck': (b) => openEditor({ did: +b.dataset.id }),
   'new-deck': () => newDeck(),
