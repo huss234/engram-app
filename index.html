@@ -746,6 +746,13 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .howto{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:10px}
 .li.picked{background:var(--secondary-container)}
 .li.picked .t2{color:var(--on-secondary-container)}
+.ex-kind{transition:border-radius var(--d-fs) var(--e-fs),background-color var(--d-de) var(--e-de)}
+.ex-kind .t2{transition:color var(--d-de) var(--e-de)}
+.ex-kind .lead{position:relative;transition:background-color var(--d-de) var(--e-de),color var(--d-de) var(--e-de)}
+.ex-kind .ex-ck{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--primary);color:var(--on-primary);box-shadow:0 0 0 2px var(--secondary-container);transition:opacity var(--d-fe) linear,transform var(--d-xfs) var(--e-xfs)}
+.ex-kind .ex-ck .ms{font-size:14px}
+.ex-kind:not(.picked) .ex-ck{opacity:0;transform:scale(.4) rotate(-45deg);transition:opacity var(--d-fe) linear,transform var(--d-fe) var(--e-fe)}
+.ex-opts{position:relative}
 .optrow textarea.code{width:100%;border:0;border-radius:12px;background:var(--sch);color:var(--on-surface);padding:10px 12px;outline:0;resize:vertical}
 .optrow textarea.code.bad{box-shadow:inset 0 0 0 2px var(--error)}
 .field textarea.bad{box-shadow:inset 0 0 0 2px var(--error)}
@@ -4500,7 +4507,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.10' };
+const APP = { name: 'Engram', version: '2.1.11' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -10999,7 +11006,6 @@ function openExport({ kind = 'colpkg', deckId = null, noteIds = null } = {}) {
   const st = { kind: noteIds ? 'apkg' : kind, deckId: deckId || (noteIds ? null : (Col.decks[Col.conf.curDeck] && !Col.decks[Col.conf.curDeck].dyn ? Col.conf.curDeck : null)), noteIds, withSched: true, withMedia: true, html: true, all: !deckId && !noteIds };
   if (kind === 'apkg' && deckId) st.all = false;
   pushPage('export', (el) => {
-    const needsScope = st.kind !== 'colpkg' && st.kind !== 'engram';
     el.innerHTML = `${topbar({ title: 'Export' })}
     <div class="scroll"><h1 class="hl-l big-title">Export</h1>
     <div class="pad">
@@ -11007,23 +11013,59 @@ function openExport({ kind = 'colpkg', deckId = null, noteIds = null } = {}) {
       ['colpkg', 'inventory_2', 'Anki Collection Package (.colpkg)', 'All decks, note types, options, progress and media, for Anki. Import in Anki to replace its collection.'],
       ['apkg', 'package_2', 'Anki Deck Package (.apkg)', 'One deck or all decks. Merges into an existing Anki collection.'],
       ['notes', 'description', 'Notes in plain text (.txt)', 'Fields and tags, tab-separated, with Anki headers'],
-      ['cards', 'notes', 'Cards in plain text (.txt)', 'Question and answer as they appear']].map(([k, i, t, s]) => `<button class="li ${st.kind === k ? 'picked' : ''}" data-kind="${k}"><span class="lead ${st.kind === k ? '' : 'plain'}">${ic(i)}</span><span class="tx"><span class="t1">${t}</span><span class="t2" style="display:block">${s}</span></span>${st.kind === k ? `<span class="trail">${ic('check_circle', 'fill')}</span>` : ''}</button>`).join('')}</div>
-      ${needsScope && !st.noteIds ? `<div class="field" style="margin-top:20px"><label>Include</label>${selectHtml('id="ex-deck"', [['all', 'All decks'], ...deckOptionsList()], st.all ? 'all' : st.deckId)}</div>` : ''}
-      ${st.noteIds ? `<div class="bd-m muted" style="margin:20px 4px">${plural(st.noteIds.length, 'selected note')}</div>` : ''}
-      <div class="group" style="margin:16px 0 0">
-        ${st.kind === 'apkg' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include scheduling information</span><span class="t2" style="display:block">Intervals, due dates, FSRS memory and review history</span></span>${swHtml('data-ex="withSched"', st.withSched)}</div>` : ''}
-        ${st.kind === 'apkg' || st.kind === 'colpkg' || st.kind === 'engram' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include media</span><span class="t2" style="display:block">${fmtNum(Col.media.size)} files stored on this device</span></span>${swHtml('data-ex="withMedia"', st.withMedia)}</div>` : ''}
-        ${st.kind === 'notes' || st.kind === 'cards' ? `<div class="li optrow"><span class="tx"><span class="t1" style="display:block">Include HTML and media references</span></span>${swHtml('data-ex="html"', st.html)}</div>` : ''}
-      </div>
-      <button class="btn l block" data-act="ex-go" style="margin-top:24px">${ic('ios_share')}Export</button>
-      ${st.kind === 'apkg' ? `<button class="btn m tonal block" data-act="ex-parts" style="margin-top:8px">${ic('splitscreen')}Export in parts (about 2,000 notes each)</button>` : ''}
-      ${st.kind === 'colpkg' ? `<button class="btn m tonal block" data-act="export-media-zip" style="margin-top:8px">${ic('folder_zip')}Media folder as .zip</button>` : ''}
-      <div class="bd-s muted" style="margin:12px 4px">${st.kind === 'engram' ? 'Engram backups are for Engram: import one on any device to get everything back. Without media, images still come back from GitHub when sync is on.' : 'Files are written in the classic “anki21” format. Every Anki and AnkiDroid version can import them, FSRS data included.'}</div>
+      ['cards', 'notes', 'Cards in plain text (.txt)', 'Question and answer as they appear']].map(([k, i, t, s]) => `<button class="li rp ex-kind ${st.kind === k ? 'picked' : ''}" data-kind="${k}" aria-pressed="${st.kind === k}"><span class="lead ${st.kind === k ? '' : 'plain'}">${ic(i)}<span class="ex-ck">${ic('check')}</span></span><span class="tx"><span class="t1">${t}</span><span class="t2" style="display:block">${s}</span></span></button>`).join('')}</div>
+      <div class="ex-opts" data-exopts>${exportOptsHtml(st)}</div>
     </div></div>`;
-    el.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { st.kind = b.dataset.kind; topPage('export').refresh(); });
-    el.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); st[b.dataset.ex] = on; });
-    const ds = el.querySelector('#ex-deck'); if (ds) ds.onchange = () => { st.all = ds.value === 'all'; st.deckId = st.all ? null : +ds.value; };
+    el.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => exportPick(el, st, b.dataset.kind));
+    wireExportOpts(el, st);
   }).state = st;
+}
+function exportOptsHtml(st) {
+  const needsScope = st.kind !== 'colpkg' && st.kind !== 'engram';
+  return `
+      ${needsScope && !st.noteIds ? `<div class="field" data-fk="scope" style="margin-top:20px"><label>Include</label>${selectHtml('id="ex-deck"', [['all', 'All decks'], ...deckOptionsList()], st.all ? 'all' : st.deckId)}</div>` : ''}
+      ${st.noteIds ? `<div class="bd-m muted" data-fk="selnotes" style="margin:20px 4px">${plural(st.noteIds.length, 'selected note')}</div>` : ''}
+      <div class="group" style="margin:16px 0 0">
+        ${st.kind === 'apkg' ? `<div class="li optrow" data-fk="sched"><span class="tx"><span class="t1" style="display:block">Include scheduling information</span><span class="t2" style="display:block">Intervals, due dates, FSRS memory and review history</span></span>${swHtml('data-ex="withSched"', st.withSched)}</div>` : ''}
+        ${st.kind === 'apkg' || st.kind === 'colpkg' || st.kind === 'engram' ? `<div class="li optrow" data-fk="media"><span class="tx"><span class="t1" style="display:block">Include media</span><span class="t2" style="display:block">${fmtNum(Col.media.size)} files stored on this device</span></span>${swHtml('data-ex="withMedia"', st.withMedia)}</div>` : ''}
+        ${st.kind === 'notes' || st.kind === 'cards' ? `<div class="li optrow" data-fk="html"><span class="tx"><span class="t1" style="display:block">Include HTML and media references</span></span>${swHtml('data-ex="html"', st.html)}</div>` : ''}
+      </div>
+      <button class="btn l block" data-act="ex-go" data-fk="go" style="margin-top:24px">${ic('ios_share')}Export</button>
+      ${st.kind === 'apkg' ? `<button class="btn m tonal block" data-act="ex-parts" data-fk="parts" style="margin-top:8px">${ic('splitscreen')}Export in parts (about 2,000 notes each)</button>` : ''}
+      ${st.kind === 'colpkg' ? `<button class="btn m tonal block" data-act="export-media-zip" data-fk="mediazip" style="margin-top:8px">${ic('folder_zip')}Media folder as .zip</button>` : ''}
+      <div class="bd-s muted" data-fk="note-${st.kind === 'engram' ? 'e' : 'a'}" style="margin:12px 4px">${st.kind === 'engram' ? 'Engram backups are for Engram: import one on any device to get everything back. Without media, images still come back from GitHub when sync is on.' : 'Files are written in the classic “anki21” format. Every Anki and AnkiDroid version can import them, FSRS data included.'}</div>`;
+}
+function wireExportOpts(el, st) {
+  el.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); st[b.dataset.ex] = on; });
+  const ds = el.querySelector('#ex-deck'); if (ds) ds.onchange = () => { st.all = ds.value === 'all'; st.deckId = st.all ? null : +ds.value; };
+}
+/* a new format: the list updates in place and only the options below it change. Rows that stay
+   glide to their new place (FLIP), new ones fade in, and the ones that go fade out where they were */
+function exportPick(el, st, kind) {
+  if (st.kind === kind) return;
+  st.kind = kind; buzz(4);
+  const move = !reduced();
+  el.querySelectorAll('[data-kind]').forEach(b => {
+    const on = b.dataset.kind === kind, lead = b.querySelector('.lead');
+    b.classList.toggle('picked', on); b.setAttribute('aria-pressed', on); lead.classList.toggle('plain', !on);
+    if (on && move) lead.animate([{ transform: 'scale(.8)' }, { transform: 'none' }], { duration: cssDur('xfs'), easing: cssEase('xfs') });
+  });
+  const box = el.querySelector('[data-exopts]'), b0 = box.getBoundingClientRect();
+  const olds = [...box.querySelectorAll('[data-fk]')], was = new Map(olds.map(e => [e.dataset.fk, { r: e.getBoundingClientRect(), rad: getComputedStyle(e).borderRadius }]));
+  box.innerHTML = exportOptsHtml(st); wireExportOpts(el, st);
+  const now = new Set();
+  for (const e of box.querySelectorAll('[data-fk]')) {
+    const w = was.get(e.dataset.fk); now.add(e.dataset.fk);
+    if (w) { const dy = w.r.top - e.getBoundingClientRect().top; if (move && Math.abs(dy) > .5) e.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: cssDur('xfs'), easing: cssEase('xfs') }); }
+    else e.animate(move ? [{ opacity: 0, transform: 'translateY(-8px) scale(.98)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 0 }, { opacity: 1 }], { duration: cssDur('ds'), easing: cssEase('ds') });
+  }
+  for (const o of olds) {
+    if (now.has(o.dataset.fk)) continue;
+    const { r, rad } = was.get(o.dataset.fk);
+    Object.assign(o.style, { position: 'absolute', left: r.left - b0.left + 'px', top: r.top - b0.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', borderRadius: rad, pointerEvents: 'none' });
+    o.setAttribute('aria-hidden', 'true'); box.appendChild(o);
+    o.animate(move ? [{ opacity: 1 }, { opacity: 0, transform: 'scale(.97)' }] : [{ opacity: 1 }, { opacity: 0 }], { duration: cssDur('fe'), easing: cssEase('fe'), fill: 'forwards' }).onfinish = () => o.remove();
+  }
 }
 async function exportParts(st) {
   await Store.flush();
