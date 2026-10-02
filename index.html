@@ -4390,8 +4390,9 @@ const AnkiIO = (() => {
         else if (x.kind === 'guid' && v.trim()) guid = v.trim();
       });
       if (m !== Col.models[mid] && ntCol >= 0) {
-        /* with a notetype column, fields follow in order */
-        let k = 0; flds.length = 0; map.forEach((x, ci) => { if (x && x.kind === 'field') flds[k++] = html ? (row[ci] ?? '') : escHtml(row[ci] ?? ''); });
+        /* with a notetype column, fields follow in order: every column that is not guid, note type, deck or tags,
+           as Anki does; columns past the chosen type's fields are unmapped but still belong to this row's type */
+        let k = 0; flds.length = 0; map.forEach((x, ci) => { if (!x || x.kind === 'field') flds[k++] = html ? (row[ci] ?? '') : escHtml(row[ci] ?? ''); });
       }
       for (let k = 0; k < m.flds.length; k++) if (flds[k] === undefined) flds[k] = '';
       flds.length = m.flds.length;
@@ -4554,7 +4555,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.14' };
+const APP = { name: 'Engram', version: '2.1.15' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -11045,7 +11046,10 @@ async function runPkgImport(pg) {
 }
 function setupTextMapping(s) {
   const t = s.text, h = t.head;
-  const m = (h.notetype && Col.modelByName(h.notetype)) || Col.models[Col.conf.curModel] || Object.values(Col.models)[0];
+  /* with a note type column and no #notetype header, start on the type most rows name, so every field column is mapped */
+  const named = new Map(); if (h.notetypeCol !== null) for (const r of t.rows) { const x = (r[h.notetypeCol] || '').trim(), mm = x && (Col.modelByName(x) || Col.models[x]); if (mm) named.set(mm, (named.get(mm) || 0) + 1); }
+  const colModel = [...named].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const m = (h.notetype && Col.modelByName(h.notetype)) || colModel || Col.models[Col.conf.curModel] || Object.values(Col.models)[0];
   s.mid = m.id; s.did = h.deck ? Col.ensureDeck(h.deck).id : (Col.decks[Col.conf.curDeck] && !Col.decks[Col.conf.curDeck].dyn ? Col.conf.curDeck : 1);
   s.html = h.html ?? /<[a-z][\s\S]*>/i.test(t.rows.slice(0, 50).map(r => r.join(' ')).join(' '));
   s.dupe = h.ifMatches === 'keep' || h.ifMatches === 'skip' ? 'skip' : h.ifMatches === 'duplicate' ? 'add' : 'update';
