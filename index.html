@@ -689,6 +689,8 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .deckrow .tog-sp{width:36px;flex:none}
 .deckrow .shp{width:40px;height:40px}.deckrow .shp .ms{font-size:20px}
 .deckrow .shp.sub{width:36px;height:36px}.deckrow .shp.sub .ms{font-size:18px}
+/* a leaf subdeck's avatar sits centered in the space before its name; the name stays where it was */
+.deckrow > .shp.sub:first-child{margin:0 calc(var(--depth,1) * 11px - 1px) 0 calc(1px - var(--depth,1) * 11px)}
 .deckrow .t1{white-space:nowrap}
 :root{--c-new:oklch(0.55 0.17 255);--c-lrn:oklch(0.58 0.2 27);--c-rev:oklch(0.55 0.15 150)}
 :root[data-theme="dark"]{--c-new:oklch(0.78 0.12 255);--c-lrn:oklch(0.75 0.14 27);--c-rev:oklch(0.78 0.13 150)}
@@ -4658,7 +4660,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.21' };
+const APP = { name: 'Engram', version: '2.1.22' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
