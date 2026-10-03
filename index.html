@@ -1243,7 +1243,7 @@ label.li{cursor:text}
 .mo-figs>div{display:flex;flex-direction:column;min-width:0}
 .mo-figs .v{font-size:calc(20px*var(--ts));line-height:1.2;font-weight:560;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:1px;flex-wrap:wrap;font-variation-settings:"wdth" 110}
 .mo-figs .v i{font-style:normal;font-size:.62em;color:var(--on-surface-variant);margin-left:1px;font-variation-settings:"wdth" 100}
-.mo-figs .v .mo-m{margin-left:.3em}
+.hm-m{margin-left:.3em}
 .mo-tr{display:inline-flex;align-items:center;font-size:11px;font-weight:650;margin-left:6px;padding:1px 5px 1px 2px;border-radius:8px;font-variation-settings:"wdth" 100}
 .mo-tr .ms{font-size:13px}
 .mo-tr.up{background:var(--g-good);color:var(--on-g-good)}
@@ -4556,7 +4556,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.17' };
+const APP = { name: 'Engram', version: '2.1.18' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -6061,7 +6061,7 @@ const Sync = {
         try { DevPrefs.afterSync(); } catch (e) { console.warn('device settings', e); }
       } catch (e) {
         this.lastError = e; res.error = e;
-        if (e.kind !== 'offline' && e.kind !== 'net') this.log1('Problem: ' + (e.kind === 'rate' ? `GitHub asked us to wait ${Math.max(1, Math.ceil((e.until - Date.now()) / 60000))} min` : e.message));
+        if (e.kind !== 'offline' && e.kind !== 'net') this.log1('Problem: ' + (e.kind === 'rate' ? `GitHub asked us to wait ${fmtDur(Math.max(1, Math.ceil((e.until - Date.now()) / 60000)) * MIN)}` : e.message));
         if (e.kind === 'rate') { clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), Math.max(5000, e.until - Date.now() + 1000)); }
         else if (e.kind === 'conflict') { this.log1('Waiting to sync: another device kept writing'); clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), 30000); }
         else if (e.kind === 'net' || e.kind === 'server') { clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), 60000); }
@@ -6083,7 +6083,7 @@ const Sync = {
     if (GH.serverSkew == null) return;
     if (Math.abs(GH.serverSkew) > 5 * MIN && Date.now() - (this.st.clockWarned || 0) > DAY) {
       this.st.clockWarned = Date.now();
-      snack(`This device's clock is ${Math.round(Math.abs(GH.serverSkew) / MIN)} min ${GH.serverSkew > 0 ? 'ahead' : 'behind'}. Set the time automatically, or sync may pick the wrong version.`, 'OK', null, 9000);
+      snack(`This device's clock is ${fmtDur(Math.abs(GH.serverSkew))} ${GH.serverSkew > 0 ? 'ahead' : 'behind'}. Set the time automatically, or sync may pick the wrong version.`, 'OK', null, 9000);
     }
   },
   tokenExpiry() { return GH.expiresAt || this.st.tokenExpires || 0; },
@@ -6382,7 +6382,7 @@ function syncLabel() {
   return {
     off: ['cloud_off', 'Not connected'], saved: ['cloud_done', 'All saved'], waiting: ['cloud_upload', n ? `${fmtNum(n)} waiting` : 'Not synced yet'],
     syncing: ['sync', Sync.progress ? `${Math.round(100 * Sync.progress.done / Math.max(1, Sync.progress.total))}%` : Sync.mediaTotal ? `Images ${fmtNum(Sync.mediaDone)}/${fmtNum(Sync.mediaTotal)}` : 'Syncing'],
-    offline: ['cloud_off', n ? `Offline · ${fmtNum(n)} waiting` : 'Offline'], rate: ['hourglass_top', `Wait ${mins} min`],
+    offline: ['cloud_off', n ? `Offline · ${fmtNum(n)} waiting` : 'Offline'], rate: ['hourglass_top', `Wait ${fmtDur(mins * MIN)}`],
     error: ['error', 'Sync problem'], auth: ['key_off', 'Token problem'], choice: ['rule', 'Needs your choice'],
   }[s] || ['cloud', 'Sync'];
 }
@@ -6498,7 +6498,7 @@ async function syncNow() {
   if (!r) return;
   if (r.error) {
     const e = r.error;
-    if (e.kind === 'rate') snack(`GitHub asked us to wait ${Math.max(1, Math.ceil((e.until - Date.now()) / 60000))} min. Nothing is lost; it will retry.`);
+    if (e.kind === 'rate') snack(`GitHub asked us to wait ${fmtDur(Math.max(1, Math.ceil((e.until - Date.now()) / 60000)) * MIN)}. Nothing is lost; it will retry.`);
     else if (e.kind === 'auth') snack('GitHub did not accept the token.', 'Fix', openTokenRenew, 8000);
     else snack('Sync paused: ' + e.message, 'Details', openSyncSheet, 7000);
     return;
@@ -8045,7 +8045,7 @@ function renderDecks(el) {
           <span class="cnt r ${tr ? '' : 'off'}">${ic('event_repeat', 'sm')}${tr} review</span>
         </div>
         ${firstDue ? `<button class="btn l block" data-act="study-deck" data-id="${firstDue.id}">${ic('play_arrow', 'fill')}Study ${esc(firstDue.name)}</button>` : ''}
-        <div class="bd-s muted">${td.n ? `Studied ${plural(td.n, 'card')} in ${Math.max(1, Math.round(td.t / 60000))} min today` : 'Nothing studied yet today'}</div>
+        <div class="bd-s muted">${td.n ? `Studied ${plural(td.n, 'card')} in ${fmtDur(Math.max(MIN, td.t))} today` : 'Nothing studied yet today'}</div>
       </div>${momentumHtml(tn, tl, tr)}</div>
       <div class="home-main"><div class="sec-t"><span class="grow">All decks</span><span class="dlegend">${countsHtml('New', 'Learn', 'Due', true).replace(/class="(c.) z"/g, 'class="$1"')}</span></div>
       <div class="group decktree">${rows.join('')}</div></div></div>`}
@@ -8829,7 +8829,7 @@ function finishStudy(pg) {
       <div class="hl-m">${n ? 'Session done' : 'Nothing left'}</div>
       <div class="bd-l muted">${n ? `${plural(n, 'answer')} in ${clock < MIN ? 'under a minute' : fmtDur(clock)}` : 'Congratulations! You have finished this deck for now.'}</div></div>
     ${n ? `<div class="tiles sum-tiles">
-      <div class="tile"><span class="num">${fmtClock(clock)}</span><span class="cap">on the session clock</span></div>
+      <div class="tile"><span class="num">${hmHtml(clock, u => `<span class="bd-m">${u}</span>`)}</span><span class="cap">on the session clock</span></div>
       <div class="tile t2"><span class="num">${secsParts(myPace)[0]}<span class="bd-m">${secsParts(myPace)[1]}</span></span><span class="cap">per card${usual != null ? `, usually ${fmtSecs(usual)}` : ''}</span></div>
       <div class="tile t3"><span class="num">${acc}%</span><span class="cap">not pressed Again</span></div>
       <div class="tile t4"><span class="num">${fmtNum(ss.newN || 0)}</span><span class="cap">new cards</span></div></div>
@@ -11405,7 +11405,7 @@ function renderAnkiStats(el) {
   el.innerHTML = `
     <div class="pad" style="margin-bottom:8px">${segHtml('stats-scope', [['all', 'Collection'], ['deck', cd ? cd.name.split('::').pop() : 'Current deck']], StatsUI.scope)}</div>
     <div class="tiles">
-      <div class="tile"><span class="ic">${ic('done_all')}</span><span class="num">${fmtNum(td.length)}</span><span class="cap">reviews today${td.length ? ` · ${Math.round(tdTime / 60000)} min` : ''}</span></div>
+      <div class="tile"><span class="ic">${ic('done_all')}</span><span class="num">${fmtNum(td.length)}</span><span class="cap">reviews today${td.length ? ` · ${fmtDur(tdTime)}` : ''}</span></div>
       <div class="tile t2"><span class="ic">${ic('replay')}</span><span class="num">${td.length ? Math.round(100 * (1 - tdAgain / td.length)) + '%' : '—'}</span><span class="cap">answered correctly today</span></div>
       <div class="tile t3"><span class="ic">${ic('local_fire_department', 'fill')}</span><span class="num">${streak}</span><span class="cap">day streak</span></div>
       <div class="tile t4"><span class="ic">${ic('neurology')}</span><span class="num">${tdMat.length ? Math.round(100 * tdMatOk / tdMat.length) + '%' : retFor(30)[1]}</span><span class="cap">mature retention${tdMat.length ? ' today' : ', 30 days'}</span></div>
@@ -11516,9 +11516,12 @@ function durHtml(ms) {
   const h = Math.floor(m / 60), r = m % 60;
   return `<b data-cu="${h}">${h}</b><i>h</i>${r ? ` <b data-cu="${r}">${r}</b><i>min</i>` : ''}`;
 }
-/* hours and minutes for the small figures: 6<i>h</i> 23<i>min</i> */
-const estHtml = ms => { const m = Math.max(1, Math.round(ms / MIN)), h = Math.floor(m / 60), r = m % 60; return h ? `${h}<i>h</i>${r ? `<span class="mo-m">${r}</span><i>min</i>` : ''}` : `${m}<i>min</i>`; };
-const minsText = t => t > 0 && t < MIN ? '<1' : String(Math.round(t / MIN));
+/* fmtDur for figures with smaller units: 6<i>h</i> 23<i>min</i>; unit(u) wraps each unit */
+const hmHtml = (ms, unit = u => `<i>${u}</i>`) => {
+  if (ms < MIN) return ms <= 0 ? '0' + unit('min') : Math.max(1, Math.round(ms / 1000)) + unit('s');
+  const m = Math.round(ms / MIN), h = Math.floor(m / 60), r = m % 60;
+  return h ? `${h}${unit('h')}${r ? `<span class="hm-m">${r}</span>${unit('min')}` : ''}` : `${m}${unit('min')}`;
+};
 const fmtClock = ms => { const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : `${m}:${String(s % 60).padStart(2, '0')}`; };
 const paceOf = (t, n) => n ? t / n / 1000 : 0;
 /* seconds as text: under a minute 48.2 s, from a minute on clock style 3:39 min */
@@ -11541,13 +11544,13 @@ const Goal = {
   set(type, value) { Col.conf.engramGoal = { type, value }; Col.touchMeta(); Prefs.goalType = type; Prefs.goalValue = value; savePrefs(); },
 };
 const goalFrac = v => !v ? 0 : Goal.type === 'cards' ? v.n / Math.max(1, Goal.value) : v.t / MIN / Math.max(1, Goal.value);
-const goalText = () => Goal.type === 'cards' ? `${plural(Goal.value, 'card')} a day` : `${Goal.value} min a day`;
+const goalText = () => Goal.type === 'cards' ? `${plural(Goal.value, 'card')} a day` : `${fmtDur(Goal.value * MIN)} a day`;
 function goalLeftText(v) {
   if (Goal.type === 'cards') { const k = Math.max(0, Goal.value - (v ? v.n : 0)); return plural(k, 'card'); }
-  const k = Math.max(1, Math.ceil(Goal.value - (v ? v.t : 0) / MIN)); return k + ' min';
+  const k = Math.max(1, Math.ceil(Goal.value - (v ? v.t : 0) / MIN)); return fmtDur(k * MIN);
 }
 function goalProgressText(v) {
-  return Goal.type === 'cards' ? `${fmtNum(v ? v.n : 0)} of ${fmtNum(Goal.value)} cards` : `${minsText(v ? v.t : 0)} of ${Goal.value} min`;
+  return Goal.type === 'cards' ? `${fmtNum(v ? v.n : 0)} of ${fmtNum(Goal.value)} cards` : `${fmtDur(v ? v.t : 0)} of ${fmtDur(Goal.value * MIN)}`;
 }
 
 /* ---------------- computation ---------------- */
@@ -12036,8 +12039,8 @@ function momentumHtml(tn, tl, tr) {
     <div class="mo-goal"><div class="mo-bar"><i style="--f:${Math.min(1, f).toFixed(3)}"></i></div><span class="bd-s"><b>${goalProgressText(today)}</b><span class="muted"> · goal ${esc(goalText())}</span></span></div>
     <div class="mo-figs">
       <div><span class="v">${paceV != null ? `${secsParts(paceV)[0]}<i>${secsParts(paceV)[1]}</i>` : '—<i>s</i>'}${trend}</span><span class="bd-s muted">${paceCap}</span></div>
-      <div><span class="v">${today ? esc(minsText(today.t)) : 0}<i>min</i></span><span class="bd-s muted">studied today</span></div>
-      <div><span class="v">${est ? '≈' + estHtml(est) : '0<i>min</i>'}</span><span class="bd-s muted">${est ? 'to finish today' : 'nothing left'}</span></div>
+      <div><span class="v">${hmHtml(today ? today.t : 0)}</span><span class="bd-s muted">studied today</span></div>
+      <div><span class="v">${est ? '≈' + hmHtml(Math.max(MIN, est)) : '0<i>min</i>'}</span><span class="bd-s muted">${est ? 'to finish today' : 'nothing left'}</span></div>
     </div></div>`;
 }
 
