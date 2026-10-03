@@ -1243,6 +1243,7 @@ label.li{cursor:text}
 .mo-figs>div{display:flex;flex-direction:column;min-width:0}
 .mo-figs .v{font-size:calc(20px*var(--ts));line-height:1.2;font-weight:560;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:1px;flex-wrap:wrap;font-variation-settings:"wdth" 110}
 .mo-figs .v i{font-style:normal;font-size:.62em;color:var(--on-surface-variant);margin-left:1px;font-variation-settings:"wdth" 100}
+.mo-figs .v .mo-m{margin-left:.3em}
 .mo-tr{display:inline-flex;align-items:center;font-size:11px;font-weight:650;margin-left:6px;padding:1px 5px 1px 2px;border-radius:8px;font-variation-settings:"wdth" 100}
 .mo-tr .ms{font-size:13px}
 .mo-tr.up{background:var(--g-good);color:var(--on-g-good)}
@@ -4555,7 +4556,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.16' };
+const APP = { name: 'Engram', version: '2.1.17' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -11515,6 +11516,8 @@ function durHtml(ms) {
   const h = Math.floor(m / 60), r = m % 60;
   return `<b data-cu="${h}">${h}</b><i>h</i>${r ? ` <b data-cu="${r}">${r}</b><i>min</i>` : ''}`;
 }
+/* hours and minutes for the small figures: 6<i>h</i> 23<i>min</i> */
+const estHtml = ms => { const m = Math.max(1, Math.round(ms / MIN)), h = Math.floor(m / 60), r = m % 60; return h ? `${h}<i>h</i>${r ? `<span class="mo-m">${r}</span><i>min</i>` : ''}` : `${m}<i>min</i>`; };
 const minsText = t => t > 0 && t < MIN ? '<1' : String(Math.round(t / MIN));
 const fmtClock = ms => { const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : `${m}:${String(s % 60).padStart(2, '0')}`; };
 const paceOf = (t, n) => n ? t / n / 1000 : 0;
@@ -11670,11 +11673,24 @@ const Insights = {
     }
     return fut;
   },
-  /* seconds per card by kind over the last 30 days, with sensible fallbacks */
+  /* ms per card by kind: the last 30 days with recent days counting more (half-life
+     7 days), blended with today's own pace, which leads once today has a few cards */
   paces(scope = 'all') {
-    const g = this.range(30, scope), all = g.t / Math.max(1, g.n) || 8000;
-    const k = i => g.kn[i] >= 5 ? g.kt[i] / g.kn[i] : all;
-    return { all, new: k(0), rev: k(1), lrn: (g.kn[0] + g.kn[2] >= 5) ? (g.kt[0] + g.kt[2]) / (g.kn[0] + g.kn[2]) : all };
+    const A = this.all(scope), S = A.S, set = A.set, rl = Col.revlog;
+    const pn = [0, 0, 0, 0], pt = [0, 0, 0, 0], tn = [0, 0, 0, 0], tt = [0, 0, 0, 0];
+    for (let i = this.lower(S - 29 * DAY); i < rl.length; i++) {
+      const r = rl[i]; if (r.ease < 1 || r.type > 3 || (set && !set.has(r.cid))) continue;
+      if (r.id >= S) { tn[r.type]++; tt[r.type] += rtOf(r); continue; }
+      const w = Math.pow(0.5, (Math.ceil((S - r.id) / DAY) - 1) / 7); pn[r.type] += w; pt[r.type] += w * rtOf(r);
+    }
+    const sum = (a, ks) => ks.reduce((s, k) => s + a[k], 0);
+    const blend = ks => {
+      const n0 = sum(tn, ks), n1 = sum(pn, ks), today = n0 >= 3 ? sum(tt, ks) / n0 : null, past = n1 >= 3 ? sum(pt, ks) / n1 : null;
+      if (today == null || past == null) return today ?? past;
+      const w = n0 / (n0 + 10); return w * today + (1 - w) * past;
+    };
+    const all = blend([0, 1, 2, 3]) ?? 8000;
+    return { all, new: blend([0]) ?? all, rev: blend([1]) ?? all, lrn: blend([0, 2]) ?? all };
   },
   /* about how long the cards still due today will take */
   estimateToday(tn, tl, tr) {
@@ -12021,7 +12037,7 @@ function momentumHtml(tn, tl, tr) {
     <div class="mo-figs">
       <div><span class="v">${paceV != null ? `${secsParts(paceV)[0]}<i>${secsParts(paceV)[1]}</i>` : '—<i>s</i>'}${trend}</span><span class="bd-s muted">${paceCap}</span></div>
       <div><span class="v">${today ? esc(minsText(today.t)) : 0}<i>min</i></span><span class="bd-s muted">studied today</span></div>
-      <div><span class="v">${est ? '≈' + Math.max(1, Math.round(est / MIN)) : 0}<i>min</i></span><span class="bd-s muted">${est ? 'to finish today' : 'nothing left'}</span></div>
+      <div><span class="v">${est ? '≈' + estHtml(est) : '0<i>min</i>'}</span><span class="bd-s muted">${est ? 'to finish today' : 'nothing left'}</span></div>
     </div></div>`;
 }
 
