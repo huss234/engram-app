@@ -4555,7 +4555,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.15' };
+const APP = { name: 'Engram', version: '2.1.16' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8821,7 +8821,7 @@ function finishStudy(pg) {
   const notes = [];
   if (A.streak) notes.push(['local_fire_department', A.streak === 1 ? 'Day one of a new streak' : `${A.streak} days in a row`]);
   if (n) notes.push(f >= 1 ? ['flag', 'Daily goal reached'] : ['outlined_flag', `${goalLeftText(today)} to today’s goal`]);
-  if (dp != null && Math.abs(dp) >= 0.3) notes.push([dp < 0 ? 'bolt' : 'hourglass_top', dp < 0 ? `${Math.abs(dp).toFixed(1)} s per card faster than usual` : `${dp.toFixed(1)} s per card slower than usual`]);
+  if (dp != null && Math.abs(dp) >= 0.3) notes.push([dp < 0 ? 'bolt' : 'hourglass_top', dp < 0 ? `${fmtSecs(Math.abs(dp))} per card faster than usual` : `${fmtSecs(dp)} per card slower than usual`]);
   pg.el.innerHTML = `${topbar({ title: '', back: true })}
     <div class="scroll"><div class="empty" style="padding-top:8px">
       <div class="sum-shape">${shapeSvg(4, 168)}${ic('check', 'fill')}</div>
@@ -8829,7 +8829,7 @@ function finishStudy(pg) {
       <div class="bd-l muted">${n ? `${plural(n, 'answer')} in ${clock < MIN ? 'under a minute' : fmtDur(clock)}` : 'Congratulations! You have finished this deck for now.'}</div></div>
     ${n ? `<div class="tiles sum-tiles">
       <div class="tile"><span class="num">${fmtClock(clock)}</span><span class="cap">on the session clock</span></div>
-      <div class="tile t2"><span class="num">${myPace.toFixed(1)}<span class="bd-m">s</span></span><span class="cap">per card${usual != null ? `, usually ${usual.toFixed(1)} s` : ''}</span></div>
+      <div class="tile t2"><span class="num">${secsParts(myPace)[0]}<span class="bd-m">${secsParts(myPace)[1]}</span></span><span class="cap">per card${usual != null ? `, usually ${fmtSecs(usual)}` : ''}</span></div>
       <div class="tile t3"><span class="num">${acc}%</span><span class="cap">not pressed Again</span></div>
       <div class="tile t4"><span class="num">${fmtNum(ss.newN || 0)}</span><span class="cap">new cards</span></div></div>
       ${notes.length ? `<div class="sum-notes">${notes.map(([i, t]) => `<span class="sum-note">${ic(i, 'fill')}${esc(t)}</span>`).join('')}</div>` : ''}
@@ -8856,7 +8856,7 @@ function openCardInfo(cid) {
     ['Added', fmtDate(c.id)], ['First review', rl.length ? fmtDate(rl[rl.length - 1].id) : '—'], ['Latest review', rl.length ? fmtDate(rl[0].id) : '—'],
     ['Due', due], ['Interval', c.type >= 2 ? fmtDays(c.ivl) : '—'], ['Ease', c.factor ? (c.factor / 10) + '%' : '—'],
     ['Reviews', fmtNum(c.reps)], ['Lapses', fmtNum(c.lapses)],
-    ['Average time', rl.length ? (rl.reduce((s, r) => s + (r.rt ?? r.time), 0) / rl.length / 1000).toFixed(1) + ' s' : '—'], ['Total time', rl.length ? fmtDur(rl.reduce((s, r) => s + (r.rt ?? r.time), 0)) : '—'],
+    ['Average time', rl.length ? fmtSecs(rl.reduce((s, r) => s + (r.rt ?? r.time), 0) / rl.length / 1000) : '—'], ['Total time', rl.length ? fmtDur(rl.reduce((s, r) => s + (r.rt ?? r.time), 0)) : '—'],
     ...(mem ? [['Stability', mem.s < 1 ? mem.s.toFixed(2) + ' days' : fmtDays(mem.s)], ['Difficulty', Math.round((mem.d - 1) / 9 * 100) + '%']] : []),
     ...(R !== null ? [['Retrievability', Math.round(R * 100) + '%']] : []),
     ['Card type', esc(m.type === 1 ? `Cloze ${c.ord + 1}` : (m.tmpls[c.ord] || {}).name || '')], ['Note type', esc(m.name)], ['Deck', esc(d ? d.name : '') + (home ? ` (from ${esc(home.name)})` : '')],
@@ -11518,7 +11518,10 @@ function durHtml(ms) {
 const minsText = t => t > 0 && t < MIN ? '<1' : String(Math.round(t / MIN));
 const fmtClock = ms => { const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : `${m}:${String(s % 60).padStart(2, '0')}`; };
 const paceOf = (t, n) => n ? t / n / 1000 : 0;
-const fmtPace = (t, n) => n ? paceOf(t, n).toFixed(1) + ' s' : '—';
+/* seconds as text: under a minute 48.2 s, from a minute on clock style 3:39 min */
+const secsParts = v => { if (Math.round(v * 10) < 600) return [v.toFixed(1), 's']; const r = Math.round(v); return [`${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`, 'min']; };
+const fmtSecs = v => secsParts(v).join(' ');
+const fmtPace = (t, n) => n ? fmtSecs(paceOf(t, n)) : '—';
 const pct = (a, b) => b ? Math.round(100 * a / b) : null;
 const hourName = h => new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' });
 const shortDate = (ms, opt) => new Date(ms).toLocaleDateString(undefined, opt || { month: 'short', day: 'numeric' });
@@ -11779,7 +11782,7 @@ function ixHighlights(g, R0) {
   const out = [], P = g.prev;
   if (R0 !== 'all' && g.n >= 20 && P.n >= 20) {
     const a = paceOf(g.t, g.n), b = paceOf(P.t, P.n), d = a - b;
-    if (Math.abs(d) >= 0.3) out.push(d < 0 ? ['bolt', `You answer ${Math.abs(d).toFixed(1)} s faster per card than in ${prevWords(g.R)}.`] : ['hourglass_top', `Cards take ${d.toFixed(1)} s longer than in ${prevWords(g.R)}. Harder material usually does that.`]);
+    if (Math.abs(d) >= 0.3) out.push(d < 0 ? ['bolt', `You answer ${fmtSecs(Math.abs(d))} faster per card than in ${prevWords(g.R)}.`] : ['hourglass_top', `Cards take ${fmtSecs(d)} longer than in ${prevWords(g.R)}. Harder material usually does that.`]);
   }
   if (R0 !== 'all' && g.activeDays) out.push(['event_available', g.activeDays === g.R ? `You studied every single day of ${rangeWords(R0)}.` : `You studied on ${g.activeDays} of the last ${g.R} days.`]);
   let bh = -1, br = 0; g.hours.forEach((h, i) => { if (h.rn >= 20) { const r = h.rok / h.rn; if (r > br) { br = r; bh = i; } } });
@@ -11824,7 +11827,7 @@ function renderInsights(host) {
     ${spark}
     <div class="ix-figs">
       <div><span class="v"><b data-cu="${g.n}">${fmtNum(g.n)}</b></span><span class="c">cards reviewed</span></div>
-      <div><span class="v"><b data-cu="${paceOf(g.t, g.n).toFixed(1)}" data-dec="1">${paceOf(g.t, g.n).toFixed(1)}</b><i>s</i></span><span class="c">per card${hasPrev && P.n >= 20 ? ' ' + deltaPill(paceOf(g.t, g.n), paceOf(P.t, P.n), { invert: true, min: 3 }) : ''}</span></div>
+      <div><span class="v">${(([v, u]) => u === 's' ? `<b data-cu="${v}" data-dec="1">${v}</b>` : `<b>${v}</b>`)(secsParts(paceOf(g.t, g.n)))}<i>${secsParts(paceOf(g.t, g.n))[1]}</i></span><span class="c">per card${hasPrev && P.n >= 20 ? ' ' + deltaPill(paceOf(g.t, g.n), paceOf(P.t, P.n), { invert: true, min: 3 }) : ''}</span></div>
       <div><span class="v"><b data-cu="${g.activeDays}">${g.activeDays}</b><i>/${R}</i></span><span class="c">days active</span></div>
       <div><span class="v"><b>${g.rn ? pct(g.rok, g.rn) : '—'}</b>${g.rn ? '<i>%</i>' : ''}</span><span class="c">reviews correct</span></div>
     </div></section>`;
@@ -11858,7 +11861,7 @@ function renderInsights(host) {
   void kinds;
   const gradeNames = ['Again', 'Hard', 'Good', 'Easy'];
   const pace = `<section class="ix-sec" style="--i:4"><div class="sec-t">Speed per card</div>
-    <div class="card ix-card">${ixLine(paceVals, { pad: true, fmt: v => v.toFixed(1) + ' s', labels: labs, read: `Seconds per card, each ${unit}` })}
+    <div class="card ix-card">${ixLine(paceVals, { pad: true, fmt: fmtSecs, labels: labs, read: `Time per card, each ${unit}` })}
       <div class="ix-rows">${kindRows.map(([l, n, t, c]) => `<div class="ix-row"><span class="grow">${l}</span><span class="ix-meter"><i style="--w:${(t / n / 1000 / (kmax / 1000) * 100).toFixed(1)}%;background:${c}"></i></span><b>${fmtPace(t, n)}</b></div>`).join('')}</div>
       <div class="ix-grades">${g.gn.map((n, i) => n ? `<span class="gchip g${i + 1}"><span>${gradeNames[i]}</span><b>${fmtPace(g.gt[i], n)}</b></span>` : '').join('')}</div>
     </div></section>`;
@@ -11909,7 +11912,7 @@ function renderInsights(host) {
   const fut = Insights.forecast(scope, 7), pc = Insights.paces(scope), futMin = fut.map(k => k * pc.rev / MIN);
   const coming = `<section class="ix-sec" style="--i:9"><div class="sec-t">Coming up</div>
     <div class="card ix-card">${ixBars(futMin, { labels: fut.map((_, i) => i === 0 ? 'Today' : new Date(g.S + i * DAY + 12 * HOUR).toLocaleDateString(undefined, { weekday: 'short' })), center: true, tips: fut.map((k, i) => `${i === 0 ? 'Today' : new Date(g.S + i * DAY + 12 * HOUR).toLocaleDateString(undefined, { weekday: 'long' })}: ${plural(k, 'review')}, about ${fmtDur(k * pc.rev)}`), h: 88, hi: 0,
-      read: `Reviews due, in minutes at your pace of ${(pc.rev / 1000).toFixed(1)} s per review. Next 7 days: about ${fmtDur(fut.reduce((a, b) => a + b, 0) * pc.rev)}.` })}</div></section>`;
+      read: `Reviews due, in minutes at your pace of ${fmtSecs(pc.rev / 1000)} per review. Next 7 days: about ${fmtDur(fut.reduce((a, b) => a + b, 0) * pc.rev)}.` })}</div></section>`;
   /* time sinks */
   const sinks = [...g.cards.entries()].filter(([cid]) => Col.cards.has(cid)).sort((a, b) => b[1].t - a[1].t).slice(0, 5);
   const sinkSec = sinks.length >= 3 ? `<section class="ix-sec" style="--i:10"><div class="sec-t">Cards that took the longest</div>
@@ -11999,7 +12002,7 @@ function momentumHtml(tn, tl, tr) {
   let p30n = 0, p30t = 0; for (let d = 1; d <= 30; d++) { const x = A.days.get(d); if (x) { p30n += x.n; p30t += x.t; } }
   const pToday = today && today.n >= 3 ? paceOf(today.t, today.n) : null, p30 = p30n >= 10 ? paceOf(p30t, p30n) : null;
   const paceV = pToday ?? p30, paceCap = pToday != null ? 'per card today' : 'per card, 30 days';
-  const trend = pToday != null && p30 != null && Math.abs(pToday - p30) >= 0.3 ? `<span class="mo-tr ${pToday < p30 ? 'up' : 'down'}">${ic(pToday < p30 ? 'south' : 'north', 'sm')}${Math.abs(pToday - p30).toFixed(1)} s</span>` : '';
+  const trend = pToday != null && p30 != null && Math.abs(pToday - p30) >= 0.3 ? `<span class="mo-tr ${pToday < p30 ? 'up' : 'down'}">${ic(pToday < p30 ? 'south' : 'north', 'sm')}${fmtSecs(Math.abs(pToday - p30))}</span>` : '';
   const week = Array.from({ length: 7 }, (_, i) => { const d = 6 - i, v = A.days.get(d), g = goalFrac(v); const lab = new Date(A.S - d * DAY + 12 * HOUR).toLocaleDateString(undefined, { weekday: 'narrow' });
     return `<span class="mo-d ${v ? 'on' : ''} ${g >= 1 ? 'goal' : ''} ${d === 0 ? 'today' : ''}" style="--f:${Math.min(1, g).toFixed(3)}" title="${esc(relDay(d))}: ${v ? `${plural(v.n, 'card')}, ${fmtDur(v.t)}` : 'no reviews'}">${g >= 1 ? shapeSvg(4, 32) : ''}<i></i><em>${esc(lab)}</em></span>`; }).join('');
   let msg;
@@ -12016,7 +12019,7 @@ function momentumHtml(tn, tl, tr) {
     <div class="mo-week">${week}</div>
     <div class="mo-goal"><div class="mo-bar"><i style="--f:${Math.min(1, f).toFixed(3)}"></i></div><span class="bd-s"><b>${goalProgressText(today)}</b><span class="muted"> · goal ${esc(goalText())}</span></span></div>
     <div class="mo-figs">
-      <div><span class="v">${paceV != null ? paceV.toFixed(1) : '—'}<i>s</i>${trend}</span><span class="bd-s muted">${paceCap}</span></div>
+      <div><span class="v">${paceV != null ? `${secsParts(paceV)[0]}<i>${secsParts(paceV)[1]}</i>` : '—<i>s</i>'}${trend}</span><span class="bd-s muted">${paceCap}</span></div>
       <div><span class="v">${today ? esc(minsText(today.t)) : 0}<i>min</i></span><span class="bd-s muted">studied today</span></div>
       <div><span class="v">${est ? '≈' + Math.max(1, Math.round(est / MIN)) : 0}<i>min</i></span><span class="bd-s muted">${est ? 'to finish today' : 'nothing left'}</span></div>
     </div></div>`;
