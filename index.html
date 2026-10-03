@@ -1327,6 +1327,9 @@ label.li{cursor:text}
 .st-clock:active{border-radius:10px}
 .st-clock.paused{background:var(--primary);color:var(--on-primary)}
 .st-clock.idle{background:var(--sch);color:var(--on-surface-variant)}
+.st-clock[hidden]{display:none}
+.st-clock.in{animation:fadeThrough var(--d-fs) var(--e-fs) backwards}
+.st-clock.out{animation:dlgOut var(--d-fe) cubic-bezier(.4,0,1,1) both;pointer-events:none}
 .st-pause{position:absolute;inset:0;z-index:5;border-radius:32px;display:grid;place-items:center;padding:24px;
   background:color-mix(in oklab,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);animation:fade var(--d-de) var(--e-de) both}
 .st-pause.out{animation:fadeOut 200ms linear both}
@@ -4626,7 +4629,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.19' };
+const APP = { name: 'Engram', version: '2.1.20' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8596,7 +8599,7 @@ function renderStudyShell(el, pg) {
       <button class="ib" data-act="back" aria-label="Close">${ic('close')}</button>
       <div class="st-counts" data-counts></div>
       <span class="st-timer bd-s muted" data-timer></span>
-      ${Prefs.sessionClock ? `<button class="st-clock" data-act="st-clock" data-clock aria-label="Pause">${ic('timer')}<span>0:00</span></button>` : ''}
+      <button class="st-clock" data-act="st-clock" data-clock aria-label="Pause"${Prefs.sessionClock ? '' : ' hidden'}>${ic('timer')}<span>0:00</span></button>
       <button class="ib" data-act="st-undo" aria-label="Undo">${ic('undo')}</button>
       <button class="ib" data-act="st-menu" aria-label="More">${ic('more_vert')}</button>
     </div>
@@ -8902,6 +8905,7 @@ function studyMenu(anchor, pg) {
           StudyLook.change(pg, () => { Prefs.studyOled = on; }); return true;
         } },
       { icon: 'crop_free', iconOn: 'crop_square', label: 'Card frame', checked: () => !StudyLook.edge(), run: on => { StudyLook.change(pg, () => { Prefs.studyLayout = on ? 'framed' : 'edge'; }); return true; } },
+      { icon: 'timer_off', iconOn: 'timer', label: 'Clock', checked: () => Prefs.sessionClock, run: on => { Prefs.sessionClock = on; savePrefs(); Session.show(pg, on); return true; } },
     ] },
     '-',
     { icon: 'edit', label: 'Edit note', run: () => editCurrent(pg) },
@@ -12359,6 +12363,14 @@ const Session = {
     this.paint(pg);
   },
   toggle(pg) { if (pg.paused) this.resume(pg); else this.pause(pg); },
+  /* hiding only hides the chip: the session keeps timing and is saved the same way */
+  show(pg, on) {
+    const b = pg.el.querySelector('[data-clock]'); if (!b) return;
+    clearTimeout(b.outT); b.classList.remove('in', 'out');
+    if (on) { b.hidden = false; this.paint(pg); if (!reduced()) { void b.offsetWidth; b.classList.add('in'); } }
+    else if (b.hidden || reduced()) b.hidden = true;
+    else { b.classList.add('out'); b.outT = setTimeout(() => { b.hidden = true; b.classList.remove('out'); }, 150); }
+  },
   end(pg) {
     if (!pg.sess) return;
     clearInterval(pg.sessTick); pg.sessTick = null;
@@ -12456,7 +12468,7 @@ const SETTINGS = [
         { k: 'intervals', type: 'pref', pref: 'showIntervals', icon: 'schedule', t: 'Show next review time above buttons', kw: 'interval' },
         { k: 'counts', type: 'pref', pref: 'showCounts', icon: 'format_list_numbered', t: 'Show remaining card count', kw: 'counter' },
         { k: 'haptics', type: 'pref', pref: 'haptics', icon: 'vibration', t: 'Vibration', s: 'A short buzz when you tap', kw: 'haptic buzz' },
-        { k: 'sessionclock', type: 'pref', pref: 'sessionClock', icon: 'timer', t: 'Session clock', s: 'Shows how long this session has run. Tap it to pause', kw: 'timer stopwatch time pause' },
+        { k: 'sessionclock', type: 'pref', pref: 'sessionClock', icon: 'timer', t: 'Show session clock', s: 'Tap it to pause. When hidden, it still times every session', kw: 'timer stopwatch time pause hide hidden invisible' },
         { k: 'stlayout', type: 'html', icon: 'crop_free', t: 'Card layout', kw: 'frame border edge full bleed margin', html: () => segHtml('stlayout', [['edge', 'Edge to edge'], ['framed', 'Framed']], Prefs.studyLayout) },
         { k: 'swipe', type: 'pref', pref: 'swipeGrade', icon: 'swipe', t: 'Swipe to answer', s: 'On the answer, swipe right for Good or left for Again', kw: 'gesture swipe drag' },
         { k: 'fullscreen', type: 'pref', pref: 'studyFullscreen', icon: 'fullscreen', t: 'Study in full screen', s: 'Hides the browser and system bars when a session starts', kw: 'immersive full screen hide bars' },
