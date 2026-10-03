@@ -465,6 +465,34 @@ input[type=range].rng::-moz-range-thumb{width:4px;height:44px;border:0;border-ra
 .shp .ms{position:relative;font-size:22px}
 :root[data-theme="dark"] .shp{color:oklch(0.92 0.06 var(--c))} :root[data-theme="dark"] .shp svg path{fill:oklch(0.38 0.08 var(--c))}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .shp{color:oklch(0.92 0.06 var(--c))} :root:not([data-theme="light"]) .shp svg path{fill:oklch(0.38 0.08 var(--c))}}
+/* deck icon and color picker: a new color fades in, the preview springs */
+.shp[data-did]{transition:color var(--d-fs) var(--e-fs)}
+.shp[data-did] svg path{transition:fill var(--d-fs) var(--e-fs)}
+.shp.bump svg{animation:pop var(--d-fs) var(--e-fs)}
+.dl-edit{position:relative;border:0;padding:0;background:none;color:inherit;border-radius:44px;transition:transform var(--d-xfs) var(--e-xfs)}
+.dl-edit:active{transform:scale(.94)}
+.dl-badge{position:absolute;right:-4px;bottom:-4px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
+  background:var(--primary);color:var(--on-primary);box-shadow:0 0 0 3px var(--bg)}
+.dl-badge .ms{font-size:18px}
+.dl-pv{display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 0 4px}
+.dl-pv .tt-m{text-align:center;overflow-wrap:anywhere}
+.sec-t.dl-t{margin:20px 0 10px}
+.dl-cols,.dl-ics{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:8px;justify-items:center}
+.dl-cols{grid-template-columns:repeat(5,minmax(48px,1fr))}
+@media (min-width:600px){.dl-cols{grid-template-columns:repeat(10,minmax(48px,1fr))}}
+.dl-col,.dl-ic{width:48px;height:48px;border:0;padding:0;border-radius:24px;display:grid;place-items:center;
+  transition:border-radius var(--d-xds) var(--e-xds),background-color var(--d-de) var(--e-de),color var(--d-de) var(--e-de),transform var(--d-xfs) var(--e-xfs)}
+.dl-col{background:oklch(0.90 0.06 var(--c));color:oklch(0.40 0.11 var(--c))}
+.dl-col .ms{transform:scale(0);transition:transform var(--d-xfs) var(--e-xfs),var(--ms-tr)}
+.dl-col[aria-pressed="true"] .ms{transform:scale(1)}
+.dl-ic{background:transparent;color:var(--on-surface-variant)}
+@media (hover:hover){.dl-ic:hover{background:var(--schh)}}
+.dl-ic[aria-pressed="true"]{background:oklch(0.90 0.06 var(--c));color:oklch(0.40 0.11 var(--c))}
+.dl-ic[aria-pressed="true"] .ms{--ms-fill:1}
+.dl-col[aria-pressed="true"],.dl-ic[aria-pressed="true"]{border-radius:14px}
+.dl-col:active,.dl-ic:active{transform:scale(.92);border-radius:10px}
+:root[data-theme="dark"] .dl-col,:root[data-theme="dark"] .dl-ic[aria-pressed="true"]{background:oklch(0.38 0.08 var(--c));color:oklch(0.92 0.06 var(--c))}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .dl-col,:root:not([data-theme="light"]) .dl-ic[aria-pressed="true"]{background:oklch(0.38 0.08 var(--c));color:oklch(0.92 0.06 var(--c))}}
 .shp.xl{width:88px;height:88px}.shp.xl .ms{font-size:40px}
 
 /* ---------- card rows ---------- */
@@ -660,6 +688,7 @@ textarea.code{font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;mi
 .deckrow .tog.open .ms{transform:rotate(90deg)}
 .deckrow .tog-sp{width:36px;flex:none}
 .deckrow .shp{width:40px;height:40px}.deckrow .shp .ms{font-size:20px}
+.deckrow .shp.sub{width:36px;height:36px}.deckrow .shp.sub .ms{font-size:18px}
 .deckrow .t1{white-space:nowrap}
 :root{--c-new:oklch(0.55 0.17 255);--c-lrn:oklch(0.58 0.2 27);--c-rev:oklch(0.55 0.15 150)}
 :root[data-theme="dark"]{--c-new:oklch(0.78 0.12 255);--c-lrn:oklch(0.75 0.14 27);--c-rev:oklch(0.78 0.13 150)}
@@ -4629,7 +4658,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.20' };
+const APP = { name: 'Engram', version: '2.1.21' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -7808,9 +7837,86 @@ function selectHtml(attrs, options, value) {
 function deckOptionsList(includeDyn = false) { return Col.deckList().filter(d => includeDyn || !d.dyn).map(d => [d.id, d.name]); }
 function deckColor(d) { let h = 0; const s = String(d.name).split('::')[0]; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
 function deckAvatarFor(d, cls = '') {
-  const icons = ['stacks', 'menu_book', 'auto_stories', 'bookmarks', 'layers', 'style'];
-  const k = Math.abs(Number(String(d.id).slice(-4)) || 0);
-  return `<span class="shp ${cls}" style="--c:${deckColor(d)}">${shapeSvg((k % 6) + 1)}${ic(d.dyn ? 'filter_alt' : icons[k % icons.length], 'fill')}</span>`;
+  const L = DeckLook.of(d);
+  return `<span class="shp ${cls}" data-did="${d.id}" style="--c:${L.c}">${shapeSvg(L.s)}${ic(L.i, 'fill')}</span>`;
+}
+/* ---- deck icon and color: picked by hand (Col.conf.engramDeckLook, so it syncs), else worked out from the name ---- */
+const DECK_TOPICS = [
+  [/cardi|heart|\bcvs\b/, 'cardiology', 15], [/derma|skin/, 'dermatology', 45], [/endocr|hormon|diabet/, 'endocrinology', 85],
+  [/gastro|\bgi\b|digest|hepat|liver/, 'gastroenterology', 140], [/h(a)?emat|blood/, 'hematology', 330], [/immun|allerg/, 'immunology', 300],
+  [/neuro|brain|nervous|\bcns\b/, 'neurology', 265], [/\brenal|kidney|nephr|\burin/, 'nephrology', 205], [/respir|pulmo|lung|pneum/, 'pulmonology', 235],
+  [/\bsens|ophthal|\beyes?\b|\bvision/, 'visibility', 175], [/\bent\b|\bears?\b|otolar/, 'hearing', 175], [/psych|behav/, 'psychology', 300],
+  [/reprod|gyn|obstet|pregnan/, 'pregnancy', 330], [/musc|\bmsk\b|ortho|bone|skelet|rheum/, 'skeleton', 45], [/pharm|drug/, 'medication', 140],
+  [/micro|bacter|\bviro|infect/, 'microbiology', 140], [/genet/, 'genetics', 265], [/biochem|metab|nutri/, 'labs', 205],
+  [/onco|cancer/, 'oncology', 330], [/patho|histol|\bcells?\b/, 'biotech', 330], [/physio/, 'monitor_heart', 15], [/anatom/, 'body_system', 45],
+  [/pediat|paediat/, 'child_care', 85], [/radiol|imaging/, 'radiology', 235], [/\bdent/, 'dentistry', 175], [/emerg|trauma/, 'emergency', 15],
+  [/ethic|biostat|epidem/, 'balance', 205], [/language|vocab|german|deutsch|spanish|french/, 'translate', 175], [/\bmath|\bcalcul/, 'calculate', 265], [/histor/, 'history_edu', 45],
+];
+const DECK_ICONS = [
+  ['Medicine', ['cardiology', 'neurology', 'pulmonology', 'nephrology', 'gastroenterology', 'hematology', 'immunology', 'endocrinology', 'dermatology', 'visibility', 'hearing', 'psychology',
+    'skeleton', 'pregnancy', 'child_care', 'oncology', 'microbiology', 'genetics', 'medication', 'vaccines', 'stethoscope', 'body_system', 'radiology', 'dentistry',
+    'emergency', 'monitor_heart', 'bloodtype', 'glucose', 'allergy', 'labs', 'biotech', 'syringe']],
+  ['Study', ['stacks', 'menu_book', 'auto_stories', 'bookmarks', 'layers', 'style', 'school', 'quiz', 'lightbulb', 'edit_note', 'sticky_note_2', 'local_library',
+    'history_edu', 'translate', 'calculate', 'functions', 'science', 'language']],
+  ['More', ['favorite', 'star', 'bolt', 'flag', 'diamond', 'rocket_launch', 'eco', 'pets', 'public', 'music_note', 'palette', 'code', 'sports_soccer', 'fitness_center',
+    'local_cafe', 'flight', 'savings', 'filter_alt']],
+];
+const DeckLook = {
+  all() { const m = Col.conf.engramDeckLook; return m && typeof m === 'object' ? m : {}; },
+  own(d) { return this.all()[d.id] || null; },
+  auto(d) {
+    const leaf = d.name.split('::').pop().toLowerCase().replace(/[_-]+/g, ' '), t = DECK_TOPICS.find(([re]) => re.test(leaf));
+    const k = Math.abs(Number(String(d.id).slice(-4)) || 0), up = d.name.includes('::') && Col.deckByName(d.name.split('::').slice(0, -1).join('::'));
+    return { i: d.dyn ? 'filter_alt' : t ? t[1] : DECK_ICONS[1][1][k % 6], c: t ? t[2] : up ? this.of(up).c : deckColor(d), s: (k % 6) + 1 };
+  },
+  /* a subdeck with no topic of its own takes its parent's color */
+  of(d) { const a = this.auto(d), o = this.own(d) || {}; return { i: o.i || a.i, c: o.c ?? a.c, s: a.s }; },
+  set(did, v) {
+    const m = { ...this.all() }; if (v) m[did] = v; else delete m[did];
+    if (Object.keys(m).length) Col.conf.engramDeckLook = m; else delete Col.conf.engramDeckLook;
+    Col.touchMeta();
+  },
+  /* every avatar on screen switches in place, so the icon swap and the color fade play */
+  repaint() {
+    $$('.shp[data-did]').forEach(el => {
+      const d = Col.decks[el.dataset.did]; if (!d) return;
+      const L = this.of(d), m = el.querySelector('.ms');
+      el.style.setProperty('--c', L.c); if (m && m.textContent !== L.i) m.textContent = L.i;
+    });
+  },
+};
+function openDeckLook(did) {
+  const d = Col.decks[did]; if (!d) return;
+  const auto = DeckLook.auto(d); let cur = DeckLook.of(d);
+  openSheet({
+    title: 'Icon and color',
+    body: `<div class="dl-pv">${deckAvatarFor(d, 'xl')}<div class="tt-m">${esc(d.name.split('::').pop())}</div></div>
+      <div class="sec-t dl-t">Color</div>
+      <div class="dl-cols">${HUES.map(h => `<button class="dl-col" data-c="${h}" style="--c:${h}" aria-label="Color ${h}">${ic('check')}</button>`).join('')}</div>
+      ${DECK_ICONS.map(([t, list]) => `<div class="sec-t dl-t">${t}</div><div class="dl-ics">${list.map(n => `<button class="dl-ic" data-i="${n}" aria-label="${n.replace(/_/g, ' ')}">${ic(n)}</button>`).join('')}</div>`).join('')}`,
+    foot: `<button class="btn text" data-dl="auto">${ic('auto_awesome')}Automatic</button><span class="grow"></span><button class="btn" data-dl="done">Done</button>`,
+    onMount(sh, api) {
+      const body = sh.querySelector('.sh-body'), pv = sh.querySelector('.dl-pv .shp');
+      const paint = () => {
+        body.style.setProperty('--c', cur.c);
+        sh.querySelectorAll('.dl-col').forEach(b => b.setAttribute('aria-pressed', +b.dataset.c === cur.c));
+        sh.querySelectorAll('.dl-ic').forEach(b => b.setAttribute('aria-pressed', b.dataset.i === cur.i));
+        sh.querySelector('[data-dl="auto"]').disabled = !DeckLook.own(d);
+      };
+      const apply = patch => {
+        const o = patch ? { ...(DeckLook.own(d) || {}), ...patch } : {};
+        if (o.i === auto.i) delete o.i; if (o.c === auto.c) delete o.c;
+        DeckLook.set(d.id, Object.keys(o).length ? o : null);
+        cur = DeckLook.of(d); paint(); DeckLook.repaint(); buzz(4);
+        if (!reduced()) { pv.classList.remove('bump'); void pv.offsetWidth; pv.classList.add('bump'); }
+      };
+      sh.querySelectorAll('.dl-col').forEach(b => b.onclick = () => apply({ c: +b.dataset.c }));
+      sh.querySelectorAll('.dl-ic').forEach(b => b.onclick = () => apply({ i: b.dataset.i }));
+      sh.querySelector('[data-dl="auto"]').onclick = () => apply(null);
+      sh.querySelector('[data-dl="done"]').onclick = () => api.close();
+      paint();
+    },
+  });
 }
 
 /* ---------------- app & tabs ---------------- */
@@ -8132,8 +8238,8 @@ function renderDecks(el) {
 function deckRowHtml(nd, open, k) {
   const kids = nd.children.length;
   return `<div class="li deckrow" role="button" tabindex="0" data-act="open-deck" data-id="${nd.id}" style="--depth:${nd.depth}">
-    ${kids ? `<button class="ib tog ${open ? 'open' : ''}" data-act="deck-toggle" data-id="${nd.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ic('chevron_right')}</button>` : `<span class="tog-sp"></span>`}
-    ${nd.depth === 0 ? deckAvatarFor(nd.deck) : ''}
+    ${kids ? `<button class="ib tog ${open ? 'open' : ''}" data-act="deck-toggle" data-id="${nd.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ic('chevron_right')}</button>` : nd.depth ? '' : `<span class="tog-sp"></span>`}
+    ${deckAvatarFor(nd.deck, nd.depth ? 'sub' : '')}
     <span class="tx"><span class="t1" style="display:block">${esc(nd.name)}</span><span class="t2" style="display:block">${nd.dyn ? 'Filtered · ' : ''}${plural(nd.total, 'card')}${k && k.total ? ` · ${dkSeenPct(k)}%` : ''}</span>${k && k.total ? dkMini(k) : ''}</span>
     ${countsHtml(nd.newCount, nd.learnShown, nd.reviewCount)}
     <button class="ib" data-act="deck-menu" data-id="${nd.id}" aria-label="Deck actions">${ic('more_vert')}</button>
@@ -8150,6 +8256,7 @@ function deckMenu(anchor, did) {
     { icon: 'ios_share', label: 'Export', run: () => openExport({ kind: 'apkg', deckId: did }) },
     '-',
     { icon: 'edit', label: 'Rename', run: () => renameDeck(did) },
+    { icon: 'palette', label: 'Icon and color', run: () => openDeckLook(did) },
     { icon: 'delete', label: 'Delete', danger: true, run: () => deleteDeck(did) },
   ];
   openMenu(anchor, items);
@@ -8167,6 +8274,7 @@ async function deleteDeck(did) {
   if (!await confirmDlg(`Delete “${d.name}”?`, body, 'Delete', true, 'delete')) return;
   if (+did === 1) { if (!n) return snack('The Default deck cannot be deleted'); }
   const removed = Col.removeDeck(did);
+  for (const id of ids) if (DeckLook.all()[id] && !Col.decks[id]) DeckLook.set(id, null);
   if (+did === 1) Col.decks[1] = Col.decks[1] || newDeckObj(1, 'Default', 1);
   Sched.clearUndo(); App.refreshAll();
   const top = topPage('deck'); if (top && +top.state.did === +did) closePage(top);
@@ -8207,7 +8315,7 @@ function renderDeckPage(el, pg) {
   el.innerHTML = `${topbar({ title: d.name, actions: `<button class="ib" data-act="deck-opts" aria-label="Options">${ic(d.dyn ? 'filter_alt' : 'tune')}</button><button class="ib" data-act="deck-menu" data-id="${d.id}" aria-label="More">${ic('more_vert')}</button>` })}
   <div class="scroll"><div class="deck-grid"><div class="deck-side">
     <div class="deckhead">
-      ${deckAvatarFor(d, 'xl')}
+      <button class="dl-edit" data-act="deck-look" data-id="${d.id}" aria-label="Icon and color">${deckAvatarFor(d, 'xl')}<span class="dl-badge">${ic('edit')}</span></button>
       <div class="hl-s" style="text-align:center;overflow-wrap:anywhere">${esc(d.name.split('::').pop())}</div>
       ${d.name.includes('::') ? `<div class="bd-s muted">${esc(d.name.split('::').slice(0, -1).join(' › '))}</div>` : ''}
     </div>
@@ -12112,7 +12220,7 @@ function renderInsights(host) {
   const dmax = deckList.length ? deckList[0][1].t : 1;
   const decksSec = deckList.length ? `<section class="ix-sec" style="--i:5"><div class="sec-t">Where your time goes</div>
     <div class="group">${deckList.slice(0, 8).map(([did, x]) => { const d = Col.decks[did]; return `<div class="li ix-deck">${d ? deckAvatarFor(d) : `<span class="shp" style="--c:0">${shapeSvg(1)}${ic('delete')}</span>`}
-      <span class="tx"><span class="t1" style="display:block">${esc(d ? d.name : 'Deleted cards')}</span><span class="ix-meter wide"><i style="--w:${(x.t / dmax * 100).toFixed(1)}%;--c:${d ? deckColor(d) : 0}"></i></span>
+      <span class="tx"><span class="t1" style="display:block">${esc(d ? d.name : 'Deleted cards')}</span><span class="ix-meter wide"><i style="--w:${(x.t / dmax * 100).toFixed(1)}%;--c:${d ? DeckLook.of(d).c : 0}"></i></span>
       <span class="t2" style="display:block">${fmtDur(x.t)} · ${Math.round(100 * x.t / Math.max(1, g.t))}% · ${fmtPace(x.t, x.n)} per card</span></span></div>`; }).join('')}
       ${deckList.length > 8 ? `<div class="li bd-m muted">${plural(deckList.length - 8, 'more deck')}: ${fmtDur(deckList.slice(8).reduce((s, [, x]) => s + x.t, 0))}</div>` : ''}</div></section>` : '';
   /* rhythm */
@@ -12877,6 +12985,7 @@ const ACT = {
   'open-deck': (b) => openDeck(+b.dataset.id),
   'deck-toggle': (b) => { const id = +b.dataset.id; const d = Col.decks[id]; const open = !Prefs.collapsed[id] && !d.collapsed; Prefs.collapsed[id] = open; if (!open) d.collapsed = false; savePrefs(); App.renderTab('decks'); },
   'deck-menu': (b) => deckMenu(b, +b.dataset.id),
+  'deck-look': (b) => openDeckLook(+b.dataset.id),
   fab: (b) => openMenu(b, [
     { icon: 'note_add', label: 'Add note', run: () => openEditor({}) },
     { icon: 'create_new_folder', label: 'Create deck', run: () => newDeck() },
