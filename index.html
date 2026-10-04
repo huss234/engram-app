@@ -4660,7 +4660,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.24' };
+const APP = { name: 'Engram', version: '2.1.25' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8075,7 +8075,7 @@ const CARD_RUNTIME = `(function(){
   })();
   /* pinch (or ctrl + wheel) zooms the whole card, pictures included; one finger then pans, and swipe-to-answer waits until it is back at 1x */
   (function(){
-    var de=document.documentElement, b=document.body, S=1, MAX=5, z=0, st=null, pin=null, raf=0, anim=0, keep=null;
+    var de=document.documentElement, b=document.body, S=1, MAX=5, z=0, st=null, pin=null, raf=0, anim=0, keep=null, ov=null;
     /* client px per layout px: the Card zoom setting scales the frame */
     function unit(){ if (!z) z = b.getBoundingClientRect().width/(b.offsetWidth*S) || 1; }
     /* while fingers are down nothing scrolls: one transform per frame, drawn from a virtual scroll (vx, vy) */
@@ -8086,6 +8086,8 @@ const CARD_RUNTIME = `(function(){
       if (!keep){ keep=document.createElement('div'); keep.style.cssText='position:absolute;width:1px;height:1px;visibility:hidden;pointer-events:none'; }
       keep.style.left=((scrollX+innerWidth)/z)+'px'; keep.style.top=((scrollY+innerHeight)/z)+'px';
       if (!keep.parentNode) de.appendChild(keep); b.style.willChange='transform';
+      /* a scroll the browser already started under the first finger stops here instead of fighting the zoom */
+      if (ov===null){ ov=de.style.overflow; de.style.overflow='hidden'; }
     }
     function range(s){
       var k=keep && keep.parentNode, t=b.style.transform; if (k) keep.remove();
@@ -8096,6 +8098,7 @@ const CARD_RUNTIME = `(function(){
     /* back to a plain scale + real scroll, in one task so no frame shows a half state */
     function commit(s, vx, vy){
       st=null; cancelAnimationFrame(raf); raf=0; if (keep) keep.remove(); S=s;
+      if (ov!==null){ de.style.overflow=ov; ov=null; }
       b.style.willChange=''; b.style.transform = s===1 ? '' : 'scale('+s+')'; scrollTo(vx, vy);
     }
     function settle(mx, my){
@@ -8111,16 +8114,22 @@ const CARD_RUNTIME = `(function(){
     }
     /* past 1x or 5x the card follows the fingers less and less, then springs back on release */
     function soft(s){ return s>MAX ? MAX*Math.pow(s/MAX, 0.35) : s<1 ? Math.pow(s, 0.35) : s; }
+    /* fingertips wobble a pixel or two, which shakes the far edges of a zoomed card: this calms slow, small moves and stays quick on fast ones (One Euro filter) */
+    function calm(a, now){ var x=a, v=0, t=now; return function(a, now){
+      var dt=Math.max(4, now-t)/1000; t=now; v+=((a-x)/dt-v)/(1+1/(2*Math.PI*dt));
+      return x+=(a-x)/(1+1/(2*Math.PI*(1.2+0.012*Math.abs(v))*dt));
+    }; }
     function mid(e){ var a=e.touches[0], c=e.touches[1]; return { x:(a.clientX+c.clientX)/2, y:(a.clientY+c.clientY)/2, d:Math.hypot(a.clientX-c.clientX, a.clientY-c.clientY)||1 }; }
     document.addEventListener('touchstart', function(e){
       if (e.touches.length!==2) return;
       if (anim){ cancelAnimationFrame(anim); anim=0; } else if (!st){ unit(); st={ s:S, vx:scrollX, vy:scrollY }; }
-      hold(); var m=mid(e); pin={ d:m.d, s:st.s, ux:(m.x+st.vx)/st.s, uy:(m.y+st.vy)/st.s, x:m.x, y:m.y };
+      hold(); var m=mid(e), n=e.timeStamp; pin={ d:m.d, s:st.s, ux:(m.x+st.vx)/st.s, uy:(m.y+st.vy)/st.s, x:m.x, y:m.y, fd:calm(m.d, n), fx:calm(m.x, n), fy:calm(m.y, n) };
     }, {passive:true});
     document.addEventListener('touchmove', function(e){
       if (!pin || e.touches.length<2) return;
       if (e.cancelable) e.preventDefault();
-      var m=mid(e), s=soft(pin.s*m.d/pin.d); st.s=s; st.vx=pin.ux*s-m.x; st.vy=pin.uy*s-m.y; pin.x=m.x; pin.y=m.y; frame();
+      var m=mid(e), n=e.timeStamp; m.d=pin.fd(m.d, n); m.x=pin.fx(m.x, n); m.y=pin.fy(m.y, n);
+      var s=soft(pin.s*m.d/pin.d); st.s=s; st.vx=pin.ux*s-m.x; st.vy=pin.uy*s-m.y; pin.x=m.x; pin.y=m.y; draw();
     }, {passive:false});
     function end(e){ if (!pin || e.touches.length>=2) return; var x=pin.x, y=pin.y; pin=null; settle(x, y); }
     document.addEventListener('touchend', end, {passive:true});
