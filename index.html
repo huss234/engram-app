@@ -4660,7 +4660,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.22' };
+const APP = { name: 'Engram', version: '2.1.23' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8003,8 +8003,9 @@ function closePage(pg) { if (!pg) return; if (App.pages[App.pages.length - 1] ==
    CARD FRAME — renders Anki HTML/CSS/JS in an isolated iframe
    ===================================================================== */
 const CARD_BASE_CSS = `
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;touch-action:pan-x pan-y}
 html,body{margin:0;min-height:100%}
+body{transform-origin:0 0}
 body{padding:20px 18px 48px;overflow-wrap:break-word;box-sizing:border-box}
 img{max-width:100%;height:auto;-webkit-touch-callout:none}
 video{max-width:100%}
@@ -8071,6 +8072,35 @@ const CARD_RUNTIME = `(function(){
     function end(){ if (on && lock===1) send('end'); on=false; lock=0; }
     document.addEventListener('touchend', end, {passive:true});
     document.addEventListener('touchcancel', function(){ if (on && lock===1) { dx=0; send('end'); } on=false; lock=0; }, {passive:true});
+  })();
+  /* pinch (or ctrl + wheel) zooms the whole card, pictures included; one finger then pans, and swipe-to-answer waits until it is back at 1x */
+  (function(){
+    var s=1, pin=null, MAX=5;
+    function apply(v, x, y){
+      var b=document.body, r=b.getBoundingClientRect(), lx=(x-r.left)/s, ly=(y-r.top)/s;
+      s=v; b.style.transform = s===1 ? '' : 'scale('+s+')';
+      window.scrollBy(r.left+lx*s-x, r.top+ly*s-y);
+    }
+    function settle(){
+      if (s>=1.05 && s<=MAX) return;
+      var b=document.body, to=s<1.05?1:MAX; b.style.transition='transform 180ms cubic-bezier(0.2,0.8,0.2,1)';
+      apply(to, innerWidth/2, innerHeight/2); setTimeout(function(){ b.style.transition=''; }, 200);
+    }
+    function mid(e){ var a=e.touches[0], c=e.touches[1]; return { x:(a.clientX+c.clientX)/2, y:(a.clientY+c.clientY)/2, d:Math.hypot(a.clientX-c.clientX, a.clientY-c.clientY)||1 }; }
+    document.addEventListener('touchstart', function(e){ if (e.touches.length===2){ var m=mid(e); pin={ d:m.d, s:s, x:m.x, y:m.y }; } }, {passive:true});
+    document.addEventListener('touchmove', function(e){
+      if (!pin || e.touches.length!==2) return;
+      if (e.cancelable) e.preventDefault();
+      var m=mid(e), v=Math.max(0.8, Math.min(MAX*1.15, pin.s*m.d/pin.d));
+      apply(v, m.x, m.y); window.scrollBy(pin.x-m.x, pin.y-m.y); pin.x=m.x; pin.y=m.y;
+    }, {passive:false});
+    function end(e){ if (pin && e.touches.length<2){ pin=null; settle(); } }
+    document.addEventListener('touchend', end, {passive:true});
+    document.addEventListener('touchcancel', end, {passive:true});
+    document.addEventListener('wheel', function(e){
+      if (!e.ctrlKey) return; e.preventDefault();
+      apply(Math.max(1, Math.min(MAX, s*Math.exp(-e.deltaY*0.01))), e.clientX, e.clientY);
+    }, {passive:false});
   })();
   /* hold a picture: open it in Engram's gallery viewer (zoom, ID, cards) */
   (function(){
