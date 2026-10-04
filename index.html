@@ -4660,7 +4660,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.23' };
+const APP = { name: 'Engram', version: '2.1.24' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8003,7 +8003,7 @@ function closePage(pg) { if (!pg) return; if (App.pages[App.pages.length - 1] ==
    CARD FRAME — renders Anki HTML/CSS/JS in an isolated iframe
    ===================================================================== */
 const CARD_BASE_CSS = `
-html{-webkit-text-size-adjust:100%;touch-action:pan-x pan-y}
+html{-webkit-text-size-adjust:100%;touch-action:pan-x pan-y;overflow-anchor:none}
 html,body{margin:0;min-height:100%}
 body{transform-origin:0 0}
 body{padding:20px 18px 48px;overflow-wrap:break-word;box-sizing:border-box}
@@ -8075,31 +8075,61 @@ const CARD_RUNTIME = `(function(){
   })();
   /* pinch (or ctrl + wheel) zooms the whole card, pictures included; one finger then pans, and swipe-to-answer waits until it is back at 1x */
   (function(){
-    var s=1, pin=null, MAX=5;
-    function apply(v, x, y){
-      var b=document.body, r=b.getBoundingClientRect(), lx=(x-r.left)/s, ly=(y-r.top)/s;
-      s=v; b.style.transform = s===1 ? '' : 'scale('+s+')';
-      window.scrollBy(r.left+lx*s-x, r.top+ly*s-y);
+    var de=document.documentElement, b=document.body, S=1, MAX=5, z=0, st=null, pin=null, raf=0, anim=0, keep=null;
+    /* client px per layout px: the Card zoom setting scales the frame */
+    function unit(){ if (!z) z = b.getBoundingClientRect().width/(b.offsetWidth*S) || 1; }
+    /* while fingers are down nothing scrolls: one transform per frame, drawn from a virtual scroll (vx, vy) */
+    function draw(){ raf=0; if (st) b.style.transform='translate('+((scrollX-st.vx)/z)+'px,'+((scrollY-st.vy)/z)+'px) scale('+st.s+')'; }
+    function frame(){ if (!raf) raf=requestAnimationFrame(draw); }
+    /* keep the scroll range from shrinking under the gesture, so the browser never jumps the scroll */
+    function hold(){
+      if (!keep){ keep=document.createElement('div'); keep.style.cssText='position:absolute;width:1px;height:1px;visibility:hidden;pointer-events:none'; }
+      keep.style.left=((scrollX+innerWidth)/z)+'px'; keep.style.top=((scrollY+innerHeight)/z)+'px';
+      if (!keep.parentNode) de.appendChild(keep); b.style.willChange='transform';
     }
-    function settle(){
-      if (s>=1.05 && s<=MAX) return;
-      var b=document.body, to=s<1.05?1:MAX; b.style.transition='transform 180ms cubic-bezier(0.2,0.8,0.2,1)';
-      apply(to, innerWidth/2, innerHeight/2); setTimeout(function(){ b.style.transition=''; }, 200);
+    function range(s){
+      var k=keep && keep.parentNode, t=b.style.transform; if (k) keep.remove();
+      b.style.transform = s===1 ? '' : 'scale('+s+')';
+      var r={ x:Math.max(0, de.scrollWidth-de.clientWidth), y:Math.max(0, de.scrollHeight-de.clientHeight) };
+      b.style.transform=t; if (k) de.appendChild(keep); return r;
     }
+    /* back to a plain scale + real scroll, in one task so no frame shows a half state */
+    function commit(s, vx, vy){
+      st=null; cancelAnimationFrame(raf); raf=0; if (keep) keep.remove(); S=s;
+      b.style.willChange=''; b.style.transform = s===1 ? '' : 'scale('+s+')'; scrollTo(vx, vy);
+    }
+    function settle(mx, my){
+      var s=Math.min(MAX, Math.max(1, st.s)), k=s/st.s, r=range(s),
+          vx=Math.min(r.x, Math.max(0, (st.vx+mx)*k-mx)), vy=Math.min(r.y, Math.max(0, (st.vy+my)*k-my)),
+          a={ s:st.s, vx:st.vx, vy:st.vy }, t0=performance.now();
+      if (Math.abs(a.s-s)<0.002 && Math.abs(a.vx-vx)<0.5 && Math.abs(a.vy-vy)<0.5){ commit(s, vx, vy); return; }
+      (function step(now){
+        var p=Math.min(1, (now-t0)/240), e=1-Math.pow(1-p, 3);
+        st.s=a.s+(s-a.s)*e; st.vx=a.vx+(vx-a.vx)*e; st.vy=a.vy+(vy-a.vy)*e; draw();
+        if (p<1) anim=requestAnimationFrame(step); else { anim=0; commit(s, vx, vy); }
+      })(t0);
+    }
+    /* past 1x or 5x the card follows the fingers less and less, then springs back on release */
+    function soft(s){ return s>MAX ? MAX*Math.pow(s/MAX, 0.35) : s<1 ? Math.pow(s, 0.35) : s; }
     function mid(e){ var a=e.touches[0], c=e.touches[1]; return { x:(a.clientX+c.clientX)/2, y:(a.clientY+c.clientY)/2, d:Math.hypot(a.clientX-c.clientX, a.clientY-c.clientY)||1 }; }
-    document.addEventListener('touchstart', function(e){ if (e.touches.length===2){ var m=mid(e); pin={ d:m.d, s:s, x:m.x, y:m.y }; } }, {passive:true});
+    document.addEventListener('touchstart', function(e){
+      if (e.touches.length!==2) return;
+      if (anim){ cancelAnimationFrame(anim); anim=0; } else if (!st){ unit(); st={ s:S, vx:scrollX, vy:scrollY }; }
+      hold(); var m=mid(e); pin={ d:m.d, s:st.s, ux:(m.x+st.vx)/st.s, uy:(m.y+st.vy)/st.s, x:m.x, y:m.y };
+    }, {passive:true});
     document.addEventListener('touchmove', function(e){
-      if (!pin || e.touches.length!==2) return;
+      if (!pin || e.touches.length<2) return;
       if (e.cancelable) e.preventDefault();
-      var m=mid(e), v=Math.max(0.8, Math.min(MAX*1.15, pin.s*m.d/pin.d));
-      apply(v, m.x, m.y); window.scrollBy(pin.x-m.x, pin.y-m.y); pin.x=m.x; pin.y=m.y;
+      var m=mid(e), s=soft(pin.s*m.d/pin.d); st.s=s; st.vx=pin.ux*s-m.x; st.vy=pin.uy*s-m.y; pin.x=m.x; pin.y=m.y; frame();
     }, {passive:false});
-    function end(e){ if (pin && e.touches.length<2){ pin=null; settle(); } }
+    function end(e){ if (!pin || e.touches.length>=2) return; var x=pin.x, y=pin.y; pin=null; settle(x, y); }
     document.addEventListener('touchend', end, {passive:true});
     document.addEventListener('touchcancel', end, {passive:true});
+    window.addEventListener('scroll', function(){ if (st) frame(); }, {passive:true});
     document.addEventListener('wheel', function(e){
-      if (!e.ctrlKey) return; e.preventDefault();
-      apply(Math.max(1, Math.min(MAX, s*Math.exp(-e.deltaY*0.01))), e.clientX, e.clientY);
+      if (!e.ctrlKey) return; e.preventDefault(); if (st) return; unit();
+      var s=Math.max(1, Math.min(MAX, S*Math.exp(-e.deltaY*0.01))), k=s/S, r=range(s);
+      commit(s, Math.min(r.x, Math.max(0, (scrollX+e.clientX)*k-e.clientX)), Math.min(r.y, Math.max(0, (scrollY+e.clientY)*k-e.clientY)));
     }, {passive:false});
   })();
   /* hold a picture: open it in Engram's gallery viewer (zoom, ID, cards) */
