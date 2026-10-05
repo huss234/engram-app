@@ -288,26 +288,56 @@ button{cursor:pointer}
 .seg>button[aria-pressed="true"] .ms{width:18px;opacity:1}
 .seg>button:active{flex-grow:1.15}
 
-/* ---------- FAB + FAB menu ---------- */
+/* ---------- FAB + FAB menu (M3 Expressive) ----------
+   The FAB is the one place to make something new. On the Decks tab it opens a FAB menu:
+   the FAB itself morphs into a round close toggle (primary-container → primary, the +
+   turns a quarter of the way into an ×) and the items grow out of it, nearest first.
+   The open menu lives in #overlays so its scrim covers the whole app; the real FAB
+   hides underneath while the toggle stands in for it. */
 .fab{position:absolute;right:16px;bottom:16px;z-index:5;height:56px;min-width:56px;padding:0 20px 0 16px;border:0;border-radius:16px;
-  background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;
-  box-shadow:var(--shadow-3);font-size:calc(16px*var(--ts));font-weight:550;
-  transition:border-radius var(--d-xfs) var(--e-xfs),transform var(--d-xds) var(--e-xds),background-color var(--d-de) var(--e-de),padding var(--d-xfs) var(--e-xfs)}
+  background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;overflow:hidden;isolation:isolate;
+  box-shadow:var(--shadow-3);font-size:calc(16px*var(--ts));font-weight:550;letter-spacing:.01em;
+  transition:border-radius var(--d-xfs) var(--e-xfs),transform var(--d-xds) var(--e-xds),background-color var(--d-de) var(--e-de),padding var(--d-xfs) var(--e-xfs),box-shadow var(--d-de) var(--e-de)}
+.fab::before,.fab-tog::before,.fab-item::before{content:"";position:absolute;inset:0;border-radius:inherit;background:currentColor;opacity:0;pointer-events:none;z-index:-1;transition:opacity 150ms linear}
+@media (hover:hover){.fab:hover::before,.fab-tog:hover::before,.fab-item:hover::before{opacity:.08}}
+.fab:focus-visible::before,.fab-tog:focus-visible::before,.fab-item:focus-visible::before{opacity:.10}
+.fab:active::before,.fab-tog:active::before,.fab-item:active::before{opacity:.10}
 .fab .lbl{transition:opacity var(--d-fe) linear,max-width var(--d-xfs) var(--e-xfs);max-width:200px;overflow:hidden;white-space:nowrap}
 .fab.shrink{padding:0 16px}
 .fab.shrink .lbl{max-width:0;opacity:0}
-.fab:active{border-radius:22px}
-.fab.open{background:var(--primary);color:var(--on-primary);border-radius:28px;padding:0 16px}
-.fab.open .lbl{max-width:0;opacity:0}
-.fab .ms{transition:transform var(--d-xds) var(--e-xds),var(--ms-tr)}
-.fab.open .ms{transform:rotate(90deg)}
-.fab-menu{position:absolute;right:16px;bottom:84px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:6;pointer-events:none}
-.fab-menu button{pointer-events:auto;height:56px;border:0;border-radius:28px;padding:0 24px 0 20px;display:flex;align-items:center;gap:12px;
-  background:var(--primary-container);color:var(--on-primary-container);font-size:calc(16px*var(--ts));font-weight:550;box-shadow:var(--shadow);
-  transform-origin:right center;animation:fabItem var(--d-xds) var(--e-xds) both}
-.fab-menu button:active{border-radius:16px}
-@keyframes fabItem{from{opacity:0;transform:translateY(24px) scale(.6)}to{opacity:1;transform:none}}
-.fab-scrim{position:absolute;inset:0;z-index:4;background:color-mix(in oklab,var(--bg) 70%,transparent);animation:fade var(--d-de) linear both}
+.fab:active{border-radius:12px}
+#app.fab-open .tab .fab{visibility:hidden}
+
+.fab-layer{position:absolute;inset:0;pointer-events:auto}
+.fab-scrim{position:absolute;inset:0;background:color-mix(in oklab,var(--bg) 72%,transparent);animation:fade var(--d-de) linear both}
+.fab-layer.out .fab-scrim{animation:fadeOut var(--d-de) linear both}
+/* the toggle starts exactly where (and as wide as) the FAB was, then becomes a 56dp circle */
+.fab-tog{position:absolute;height:56px;border:0;padding:0 0 0 16px;display:flex;align-items:center;gap:12px;overflow:hidden;isolation:isolate;
+  background:var(--primary-container);color:var(--on-primary-container);border-radius:16px;box-shadow:var(--shadow-3);
+  font-size:calc(16px*var(--ts));font-weight:550;letter-spacing:.01em;white-space:nowrap;
+  transition:width var(--d-fs) var(--e-fs),border-radius var(--d-fs) var(--e-fs),background-color var(--d-de) var(--e-de),color var(--d-de) var(--e-de)}
+.fab-tog .ms{flex:none;transition:rotate var(--d-fs) var(--e-fs),var(--ms-tr)}
+.fab-tog .lbl{transition:opacity var(--d-fe) linear}
+.fab-layer.open .fab-tog .lbl{opacity:0}
+.fab-layer.open .fab-tog{background:var(--primary);color:var(--on-primary);border-radius:28px}
+.fab-layer.open .fab-tog .ms{rotate:45deg}
+.fab-layer.open .fab-tog:active{border-radius:16px}
+.fab-list{position:absolute;display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin:0;padding:0}
+.fab-item{position:relative;height:56px;border:0;border-radius:28px;padding:0 24px 0 16px;display:flex;align-items:center;gap:12px;overflow:hidden;isolation:isolate;
+  background:var(--primary-container);color:var(--on-primary-container);font-size:calc(16px*var(--ts));font-weight:550;letter-spacing:.01em;white-space:nowrap;
+  box-shadow:var(--shadow);transform-origin:right center;
+  /* grows out of the toggle: revealed from its right edge while it rises and scales up */
+  opacity:0;clip-path:inset(0 0 0 calc(100% - 56px) round 28px);transform:translateY(calc(16px + var(--k) * 8px)) scale(.8);
+  transition:clip-path var(--d-xfs) var(--e-xfs),transform var(--d-xfs) var(--e-xfs),opacity var(--d-fe) linear,border-radius var(--d-xfs) var(--e-xfs);
+  transition-delay:calc(var(--k) * 35ms)}
+.fab-layer.open .fab-item{opacity:1;clip-path:inset(0 0 0 0 round 28px);transform:none}
+.fab-layer.out .fab-item{transition-duration:var(--d-de),var(--d-de),var(--d-fe),0s;transition-timing-function:var(--e-de);transition-delay:calc((var(--n) - 1 - var(--k)) * 20ms)}
+.fab-item:active{border-radius:16px}
+.fab-item .ms{font-size:24px}
+@media (prefers-reduced-motion:reduce){
+  .fab-item{transform:none;clip-path:none;transition:opacity var(--d-de) linear}
+  .fab-tog,.fab-tog .ms{transition:background-color var(--d-de) linear,color var(--d-de) linear}
+}
 @keyframes fade{from{opacity:0}}
 
 /* ---------- navigation bar ---------- */
@@ -4660,7 +4690,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.25' };
+const APP = { name: 'Engram', version: '2.1.26' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -7139,7 +7169,7 @@ const buzz = (ms = 8) => { if (Prefs.haptics && navigator.vibrate) try { navigat
    short: the ripple keeps growing to full size while it fades, and a quick tap
    holds it for a beat so it always reads. */
 document.addEventListener('pointerdown', e => {
-  const el = e.target.closest('.rp,.btn,.ib,.li,.chip,.nav-i .ind,.fab,.seg>button,.grades button,.menu button,.systile,.crow,.swatch,.tabsbar button');
+  const el = e.target.closest('.rp,.btn,.ib,.li,.chip,.nav-i .ind,.fab,.fab-tog,.fab-item,.seg>button,.grades button,.menu button,.systile,.crow,.swatch,.tabsbar button');
   if (!el || el.disabled || reduced() || e.button > 0) return;
   const host = el;
   const r = host.getBoundingClientRect(), size = Math.hypot(r.width, r.height) * 2 + 8;
@@ -7683,6 +7713,48 @@ function openMenu(anchor, items) {
     if (t.dim) b.classList.toggle('dim', !!t.dim());
   });
   setTimeout(() => (m.querySelector('[data-i],[data-t]') || m).focus({ preventScroll: true }), 30);
+}
+
+/* ---- FAB menu (M3 Expressive) ----
+   items are listed nearest the FAB first; they stack upward from it. The FAB morphs into a
+   round close toggle that sits exactly where it was; closing plays it all back in reverse. */
+function openFabMenu(fab, items) {
+  const app = $('#app'), ar = app.getBoundingClientRect(), fr = fab.getBoundingClientRect();
+  const right = ar.right - fr.right, bottom = ar.bottom - fr.bottom;
+  const wrap = document.createElement('div'); wrap.className = 'fab-layer';
+  wrap.innerHTML = `<div class="fab-scrim"></div>
+    <div class="fab-list" role="menu" aria-label="${esc(fab.getAttribute('aria-label') || 'New')}" style="right:${right}px;bottom:${bottom + 56 + 8}px;flex-direction:column-reverse">
+      ${items.map((it, k) => `<button class="fab-item" role="menuitem" data-k="${k}" style="--k:${k};--n:${items.length}">${ic(it.icon)}<span>${esc(it.label)}</span></button>`).join('')}
+    </div>
+    <button class="fab-tog" aria-label="Close" aria-expanded="true" style="right:${right}px;bottom:${bottom}px;width:${fr.width}px">${ic('add')}${fab.classList.contains('shrink') ? '' : fab.querySelector('.lbl')?.outerHTML || ''}</button>`;
+  $('#overlays').appendChild(wrap);
+  app.classList.add('fab-open'); fab.setAttribute('aria-expanded', 'true');
+  const tog = wrap.querySelector('.fab-tog'), btns = [...wrap.querySelectorAll('.fab-item')];
+  void wrap.offsetWidth;
+  wrap.classList.add('open'); tog.style.width = '56px'; buzz(6);
+  let closed = false;
+  const close = () => {
+    if (closed) return; closed = true;
+    /* the FAB may have been redrawn (or collapsed by a scroll) meanwhile: morph back to whatever it is now */
+    const live = $('#tabs .tab.on .fab') || fab;
+    wrap.classList.remove('open'); wrap.classList.add('out'); wrap.style.pointerEvents = 'none';
+    tog.style.width = live.getBoundingClientRect().width + 'px';
+    live.setAttribute('aria-expanded', 'false');
+    const ms = reduced() ? 120 : parseFloat(getComputedStyle(app).getPropertyValue('--d-fs')) || 350;
+    setTimeout(() => { wrap.remove(); app.classList.remove('fab-open'); if (wrap.contains(document.activeElement) || document.activeElement === document.body) live.focus({ preventScroll: true }); }, ms);
+  };
+  Back.push(close);
+  wrap.querySelector('.fab-scrim').addEventListener('pointerdown', () => Back.pop());
+  tog.onclick = () => Back.pop();
+  btns.forEach(b => b.onclick = () => { const it = items[+b.dataset.k]; Back.drop(close); close(); setTimeout(() => it.run(), 10); });
+  /* arrow keys walk the list: up goes away from the FAB, down comes back to it */
+  wrap.addEventListener('keydown', e => {
+    const all = [tog, ...btns], i = all.indexOf(document.activeElement);
+    const go = { ArrowUp: i + 1, ArrowDown: i - 1, Home: all.length - 1, End: 0 }[e.key];
+    if (go === undefined || i < 0) return;
+    e.preventDefault(); all[Math.max(0, Math.min(all.length - 1, go))].focus();
+  });
+  setTimeout(() => btns[0] && btns[0].focus({ preventScroll: true }), 30);
 }
 
 /* ---- Material 3 Expressive shapes (polar "cookie" family) ---- */
@@ -8301,7 +8373,7 @@ function renderDecks(el) {
       <div class="home-main"><div class="sec-t"><span class="grow">All decks</span><span class="dlegend">${countsHtml('New', 'Learn', 'Due', true).replace(/class="(c.) z"/g, 'class="$1"')}</span></div>
       <div class="group decktree">${rows.join('')}</div></div></div>`}
   </div>
-  <button class="fab" data-act="fab">${ic('add')}<span class="lbl">Add</span></button>`;
+  <button class="fab" data-act="fab" aria-label="New" aria-haspopup="menu" aria-expanded="false">${ic('add')}<span class="lbl">New</span></button>`;
   if (has) Ring.mount(el.querySelector('[data-ring]'), p);
   const sc = el.querySelector('.scroll'), fab = el.querySelector('.fab');
   let lastY = 0; sc.addEventListener('scroll', () => { const y = sc.scrollTop; fab.classList.toggle('shrink', y > lastY && y > 40); lastY = y; }, { passive: true });
@@ -13035,17 +13107,21 @@ const pageOf = el => { const p = el && el.closest('.page'); return p ? App.pages
 const ACT = {
   back: () => Back.pop(),
   /* decks */
-  'decks-menu': (b) => openMenu(b, [
-    { icons: ['light_mode', 'dark_mode'], label: 'Dark theme', toggle: true, checked: () => isDark(), run: (btn, on) => themeTransition(btn.querySelector('.sw'), () => { Prefs.theme = on ? 'dark' : 'light'; }) },
-    { icon: 'settings', label: 'Settings', run: () => openSettings() },
-    '-',
-    { icon: 'upload_file', label: 'Import', run: () => openImport() },
-    { icon: 'ios_share', label: 'Export', run: () => openExport({ kind: 'colpkg' }) },
-    { icon: 'create_new_folder', label: 'New deck', run: () => newDeck() },
-    { icon: 'filter_alt', label: 'New filtered deck', run: () => openFilteredEditor() },
-    { icon: 'unfold_less', label: 'Collapse all', run: () => { for (const d of Object.values(Col.decks)) if (Col.deckChildren(d.id).length) Prefs.collapsed[d.id] = true; savePrefs(); App.renderTab('decks'); } },
-    { icon: 'unfold_more', label: 'Expand all', run: () => { Prefs.collapsed = {}; for (const d of Object.values(Col.decks)) d.collapsed = false; savePrefs(); App.renderTab('decks'); } },
-  ]),
+  /* ⋮ is about this screen and the app: how the list looks, taking the collection out, settings.
+     Making things (notes, decks, imports) belongs to the FAB alone. */
+  'decks-menu': (b) => {
+    const parents = Object.values(Col.decks).filter(d => Col.deckChildren(d.id).length);
+    const anyOpen = parents.some(d => !Prefs.collapsed[d.id] && !d.collapsed);
+    openMenu(b, [
+      { icons: ['light_mode', 'dark_mode'], label: 'Dark theme', toggle: true, checked: () => isDark(), run: (btn, on) => themeTransition(btn.querySelector('.sw'), () => { Prefs.theme = on ? 'dark' : 'light'; }) },
+      ...(parents.length ? [anyOpen
+        ? { icon: 'unfold_less', label: 'Collapse all decks', run: () => { for (const d of parents) Prefs.collapsed[d.id] = true; savePrefs(); App.renderTab('decks'); } }
+        : { icon: 'unfold_more', label: 'Expand all decks', run: () => { Prefs.collapsed = {}; for (const d of Object.values(Col.decks)) d.collapsed = false; savePrefs(); App.renderTab('decks'); } }] : []),
+      '-',
+      { icon: 'ios_share', label: 'Export collection', run: () => openExport({ kind: 'colpkg' }) },
+      { icon: 'settings', label: 'Settings', run: () => openSettings() },
+    ]);
+  },
   import: () => openImport(),
   export: () => openExport({ kind: 'colpkg' }),
   backup: () => runExport({ kind: 'engram', withMedia: true, withSched: true, all: true }),
@@ -13057,9 +13133,10 @@ const ACT = {
   'deck-toggle': (b) => { const id = +b.dataset.id; const d = Col.decks[id]; const open = !Prefs.collapsed[id] && !d.collapsed; Prefs.collapsed[id] = open; if (!open) d.collapsed = false; savePrefs(); App.renderTab('decks'); },
   'deck-menu': (b) => deckMenu(b, +b.dataset.id),
   'deck-look': (b) => openDeckLook(+b.dataset.id),
-  fab: (b) => openMenu(b, [
-    { icon: 'note_add', label: 'Add note', run: () => openEditor({}) },
-    { icon: 'create_new_folder', label: 'Create deck', run: () => newDeck() },
+  /* the FAB makes things: everything that adds to the collection, and nothing else */
+  fab: (b) => openFabMenu(b, [
+    { icon: 'note_add', label: 'Note', run: () => openEditor({}) },
+    { icon: 'create_new_folder', label: 'Deck', run: () => newDeck() },
     { icon: 'filter_alt', label: 'Filtered deck', run: () => openFilteredEditor() },
     { icon: 'upload_file', label: 'Import file', run: () => openImport() },
   ]),
