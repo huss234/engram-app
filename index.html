@@ -4690,7 +4690,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.26' };
+const APP = { name: 'Engram', version: '2.1.27' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -5835,7 +5835,8 @@ const Sync = {
     const repo = this.st.dataRepo;
     const h = await GH.head(repo, { conditional: !force });
     if (h.empty) return { empty: true };
-    if (!force && (h.notModified || h.oid === this.st.lastOid)) return { changed: false };
+    /* a 304 only says the head hasn't moved since the last read; if that read never got applied, lastOid is still behind */
+    if (!force && h.oid === this.st.lastOid) return { changed: false };
     if (!this.st.lastOid) return this.fullDownload(h.oid, { mode: Col.notes.size ? 'merge' : 'replace' });
     if (h.oid === this.st.lastOid) return { changed: false };
     const cmp = await GH.compare(repo, this.st.lastOid, h.oid);
@@ -6198,7 +6199,7 @@ const Sync = {
         this.lastError = e; res.error = e;
         if (e.kind !== 'offline' && e.kind !== 'net') this.log1('Problem: ' + (e.kind === 'rate' ? `GitHub asked us to wait ${fmtDur(Math.max(1, Math.ceil((e.until - Date.now()) / 60000)) * MIN)}` : e.message));
         if (e.kind === 'rate') { clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), Math.max(5000, e.until - Date.now() + 1000)); }
-        else if (e.kind === 'conflict') { this.log1('Waiting to sync: another device kept writing'); clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), 30000); }
+        else if (e.kind === 'conflict') { this.log1('Waiting to sync: another device kept writing'); GH.etags.delete('ref:' + this.st.dataRepo); clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), 30000); }
         else if (e.kind === 'net' || e.kind === 'server') { clearTimeout(this.timers.retry); this.timers.retry = setTimeout(() => this.run({ reason: 'retry' }), 60000); }
       } finally {
         this.busy = false; this.state = null; this.current = null;
