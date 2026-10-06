@@ -1686,17 +1686,18 @@ img.gth.in{opacity:1}
   font-size:10px;font-weight:700;line-height:16px;text-align:center}
 .gv-badge.hidden{display:none}
 
-/* picker: a full-screen dialog over the editor */
-.gpick{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);container-type:inline-size;
-  animation:gpIn var(--d-ds) var(--e-ds) both}
-.gpick.out{animation:gpOut 200ms cubic-bezier(.3,0,1,1) both}
-@keyframes gpIn{from{transform:translateY(8%);opacity:0}}
-@keyframes gpOut{to{transform:translateY(6%);opacity:0}}
-.gpick .topbar .tb-title{opacity:1;transform:none}
+/* picker: a tall sheet over the editor, so the card stays in view behind it */
+.sheet.gpsheet{height:88%;container-type:inline-size}
+.gpsheet .sh-body{display:flex;flex-direction:column;padding:0;overflow:hidden}
+.gpsheet .gp-into{display:flex;align-items:center;gap:6px;padding:0 24px 10px}
+.gpsheet .gsec-h{background:var(--sc)}
+.gpsheet .scroll{padding-bottom:16px}
+/* the image button on each field of the note editor */
+.ib.pin.gpf{color:var(--primary);opacity:1}
 
 @media (prefers-reduced-motion: reduce){
   .gcell::before,.gm-i::before,.gcar-i::before{animation:none}
-  .gpick,.gwrap.regrid .ggrid{animation:none}
+  .gwrap.regrid .ggrid{animation:none}
 }
 @media (orientation:landscape) and (min-width:900px) and (min-height:500px){
   #app:not(.has-pane) #tab-gallery{padding-left:max(0px,calc((100% - 1320px) / 2));padding-right:max(0px,calc((100% - 1320px) / 2))}
@@ -4690,7 +4691,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.29' };
+const APP = { name: 'Engram', version: '2.1.30' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -9684,6 +9685,7 @@ function openEditor({ nid = null, did = null, mid = null, onSaved = null, fields
         ${m.flds.map((f, i) => `<div class="field edf" data-i="${i}">
           <label class="row" style="gap:4px"><span class="grow">${esc(f.name)}</span>
             ${!editing ? `<button class="ib pin ${f.sticky ? 'on' : ''}" data-act="ed-sticky" data-i="${i}" aria-label="Keep this field after adding">${ic('push_pin')}</button>` : ''}
+            <button class="ib pin gpf" data-gal="${i}" aria-label="Insert image from gallery into ${esc(f.name)}">${ic('add_photo_alternate')}</button>
             <button class="ib pin ${st.raw.has(i) ? 'on' : ''}" data-act="ed-raw" data-i="${i}" aria-label="HTML editor">${ic('code')}</button></label>
           ${st.raw.has(i) ? `<textarea class="code rawf" data-i="${i}" spellcheck="false">${esc(st.flds[i] || '')}</textarea>`
           : `<div class="fedit rt" contenteditable="true" data-i="${i}" ${f.rtl ? 'dir="rtl"' : ''} style="font-family:${esc(f.font || 'inherit')},var(--font)" data-ph="${esc(f.description || '')}">${displayHtml(st.flds[i] || '')}</div>`}
@@ -9706,8 +9708,27 @@ function readEditor(el, st) {
 }
 function wireEditor(el, pg, st) {
   let lastFocus = el.querySelector('.fedit');
+  /* each field remembers where its caret was, so a picture lands there even after you tap away */
+  const carets = new Map();
+  const keepCaret = f => { const s = window.getSelection(); if (s && s.rangeCount && f.contains(s.getRangeAt(0).commonAncestorContainer)) carets.set(f, s.getRangeAt(0).cloneRange()); };
+  /* what the picker needs to suggest images for this note */
+  const pickCtx = i => ({
+    field: Col.models[st.mid].flds[i] ? Col.models[st.mid].flds[i].name : '', tags: st.tags.slice(), did: st.did,
+    flds: st.flds.map((v, j) => { const x = el.querySelector(`.fedit[data-i="${j}"],.rawf[data-i="${j}"]`); return x ? (x.tagName === 'TEXTAREA' ? x.value : storedHtml(x)) : v; }),
+  });
+  el.querySelectorAll('[data-gal]').forEach(b => {
+    b.addEventListener('pointerdown', e => e.preventDefault());
+    b.onclick = () => {
+      const i = b.dataset.gal, t = el.querySelector(`.fedit[data-i="${i}"],.rawf[data-i="${i}"]`); if (!t) return;
+      if (t.tagName === 'TEXTAREA') return galPickInto(t, null, pickCtx(+i));
+      keepCaret(t); lastFocus = t;
+      galPickInto(t, carets.get(t) || null, pickCtx(+i));
+    };
+  });
   el.querySelectorAll('.fedit').forEach(f => {
     f.addEventListener('focus', () => { lastFocus = f; });
+    ['keyup', 'input', 'blur'].forEach(ev => f.addEventListener(ev, () => keepCaret(f)));
+    f.addEventListener('pointerup', () => setTimeout(() => keepCaret(f)));
     f.addEventListener('paste', e => pasteIntoField(f, e));
     f.addEventListener('drop', e => {
       const imgs = clipImages(e.dataTransfer); if (!imgs.length) return;
@@ -9746,7 +9767,7 @@ function wireEditor(el, pg, st) {
         return;
       }
       if (cmd === 'media') return pickMediaInto(lastFocus);
-      if (cmd === 'gallery') return galPickInto(lastFocus);
+      if (cmd === 'gallery') return galPickInto(lastFocus, null, lastFocus ? pickCtx(+lastFocus.dataset.i) : null);
       if (cmd === 'paste-image') return pasteImageButton(lastFocus);
       if (lastFocus) lastFocus.focus();
       document.execCommand(cmd, false, null);
@@ -11146,23 +11167,45 @@ function galView(list, idx, fromEl) {
 }
 
 /* ---------------- picker: insert images into a field from the gallery ---------------- */
-function galPick(onPick) {
+/* images that belong with the note being edited: shared tags first, then its subtopic, then its system and discipline */
+function galSuggest(ctx) {
+  Gal.ensure();
+  const p = Gal.profile({ id: 'pick', mod: 0, flds: ctx.flds, tags: ctx.tags }, ctx.did); Gal.prof.delete('pick');
+  const t = Gal.classify([p]), words = new Set(p.tagWords), own = new Set(ctx.flds.flatMap(f => Txt.mediaRefs(f))), out = [];
+  for (const it of Gal.items) {
+    if (own.has(it.name)) continue;
+    const tp = Gal.topic(it); let s = 0;
+    if (words.size) { const seen = new Set(); for (const q of it.profs) for (const w of q.tagWords) if (words.has(w) && !seen.has(w)) { seen.add(w); s += 3; } }
+    if (t.sub && tp.sub && tp.sub.toLowerCase() === t.sub.toLowerCase()) s += 4;
+    if (t.sys !== 'other' && t.sys !== 'general' && tp.sys === t.sys) s += 2;
+    if (t.disc && tp.disc === t.disc) s += 1;
+    if (s >= 3) out.push([s, it]);
+  }
+  return out.sort((a, b) => b[0] - a[0] || b[1].added - a[1].added).slice(0, 240).map(x => x[1]);
+}
+/* a tall sheet over the editor, so the card stays in view behind it */
+function galPick(onPick, ctx = null) {
   Gal.ensure();
   if (!Gal.items.length) return snack('There are no images in the collection yet');
-  const st = { q: '', chip: 'all', sel: new Set(), order: [], selecting: true, limit: 300, names: [] };
-  const wrap = document.createElement('div'); wrap.className = 'gpick'; wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-label', 'Insert from gallery');
+  const sug = ctx ? galSuggest(ctx) : [], sugSet = new Set(sug);
+  const st = { q: '', chip: sug.length ? 'card' : 'all', sel: new Set(), order: [], selecting: true, limit: 300, names: [] };
   const counts = new Map(); for (const it of Gal.items) { const k = Gal.topic(it).sys; counts.set(k, (counts.get(k) || 0) + 1); }
-  const chips = [['all', 'All'], ['fav', 'Favorites'], ['recent', 'Recently added'], ...[...GAL_SYS, GAL_OTHER].filter(S => counts.has(S.k)).map(S => ['sys:' + S.k, S.n])];
-  wrap.innerHTML = `<header class="topbar always"><button class="ib" data-gp="close" aria-label="Close">${ic('close')}</button><div class="tb-title tt-l">Insert image</div>
-      <button class="btn" data-gp="ok" disabled style="margin:0 8px 0 4px">Insert</button></header>
-    <div class="search">${ic('search')}<input type="search" data-gp="q" placeholder="Search images, topics, IDs" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="search"></div>
-    <div class="chips scrollx" style="margin-bottom:8px">${chips.map(([k, l]) => `<button class="chip" data-gpc="${k}" aria-pressed="${k === 'all'}">${ic('check', 'ck')}${esc(l)}</button>`).join('')}</div>
-    <div class="scroll" data-gp="body"></div>`;
-  $('#overlays').appendChild(wrap);
-  const body = wrap.querySelector('[data-gp="body"]'), ok = wrap.querySelector('[data-gp="ok"]'), qi = wrap.querySelector('[data-gp="q"]');
+  const chips = [...(sug.length ? [['card', 'For this card']] : []), ['all', 'All'], ['fav', 'Favorites'], ['recent', 'Recently added'], ...[...GAL_SYS, GAL_OTHER].filter(S => counts.has(S.k)).map(S => ['sys:' + S.k, S.n])];
+  let api = null;
+  openSheet({
+    title: 'Insert image',
+    headActions: `<button class="btn" data-gp="ok" disabled>Insert</button>`,
+    body: `${ctx && ctx.field ? `<div class="bd-s muted gp-into">${ic('edit_note', 'sm')}<span>Goes into <b>${esc(ctx.field)}</b>, where the cursor is</span></div>` : ''}
+      <div class="search">${ic('search')}<input type="search" data-gp="q" placeholder="Search images, topics, IDs" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="search"></div>
+      <div class="chips scrollx" style="margin-bottom:8px">${chips.map(([k, l]) => `<button class="chip" data-gpc="${k}" aria-pressed="${k === st.chip}">${ic('check', 'ck')}${esc(l)}</button>`).join('')}</div>
+      <div class="scroll" data-gp="body"></div>`,
+    onMount: (sheet, a) => { api = a; sheet.classList.add('gpsheet'); sheet.setAttribute('aria-label', 'Insert from gallery'); },
+  });
+  const wrap = api.el, body = wrap.querySelector('[data-gp="body"]'), ok = wrap.querySelector('[data-gp="ok"]'), qi = wrap.querySelector('[data-gp="q"]');
   const draw = () => {
     let list = st.q.trim() ? Gal.search(st.q) : Gal.items.slice();
-    if (st.chip === 'fav') list = list.filter(it => (GalMeta.get(it.name) || {}).f);
+    if (st.chip === 'card') list = st.q.trim() ? list.filter(it => sugSet.has(it)) : sug.slice();
+    else if (st.chip === 'fav') list = list.filter(it => (GalMeta.get(it.name) || {}).f);
     else if (st.chip === 'recent') { list = list.filter(it => !it.unused); if (!st.q.trim()) list.sort((a, b) => b.added - a.added); }
     else if (st.chip.startsWith('sys:')) list = list.filter(it => Gal.topic(it).sys === st.chip.slice(4));
     body.innerHTML = list.length ? galGridHtml([{ title: '', names: list.map(it => it.name) }], st, { act: 'gp-cell', more: 'gp-more' })
@@ -11171,9 +11214,6 @@ function galPick(onPick) {
     galWireLazy(body);
   };
   const syncOk = () => { ok.disabled = !st.order.length; ok.textContent = st.order.length > 1 ? `Insert ${st.order.length}` : 'Insert'; };
-  let closed = false;
-  const doClose = () => { if (closed) return; closed = true; wrap.classList.add('out'); setTimeout(() => wrap.remove(), 220); };
-  Back.push(doClose);
   wrap.addEventListener('click', e => {
     const c = e.target.closest('[data-act="gp-cell"]');
     if (c) {
@@ -11184,21 +11224,25 @@ function galPick(onPick) {
     if (e.target.closest('[data-act="gp-more"]')) { e.stopPropagation(); st.limit += 300; const sc = body.scrollTop; draw(); body.scrollTop = sc; return; }
     const ch = e.target.closest('[data-gpc]');
     if (ch) { st.chip = ch.dataset.gpc; st.limit = 300; wrap.querySelectorAll('[data-gpc]').forEach(x => x.setAttribute('aria-pressed', x === ch)); draw(); body.scrollTop = 0; return; }
-    const b = e.target.closest('[data-gp]'); if (!b) return;
-    if (b.dataset.gp === 'close') Back.pop();
-    else if (b.dataset.gp === 'ok' && st.order.length) { const names = st.order.slice(); Back.pop(); onPick(names); }
+    const b = e.target.closest('[data-gp="ok"]');
+    if (b && st.order.length) { const names = st.order.slice(); api.close(); onPick(names); }
   });
   qi.addEventListener('input', debounce(() => { st.q = qi.value; st.limit = 300; draw(); body.scrollTop = 0; }, 180));
   draw(); syncOk();
   setTimeout(() => { if (!matchMedia('(pointer:coarse)').matches) qi.focus(); }, 80);
 }
-async function galPickInto(target) {
+async function galPickInto(target, caret = null, ctx = null) {
   if (!target) return snack('Tap a field first');
-  const caret = saveCaret(target);
+  /* the HTML view gets the file name, as Anki writes it */
+  if (target.tagName === 'TEXTAREA') {
+    const a = target.selectionStart, b = target.selectionEnd;
+    return galPick(names => { target.focus(); target.setSelectionRange(a, b); document.execCommand('insertText', false, names.map(n => `<img src="${esc(n)}">`).join('')); buzz(6); }, ctx);
+  }
+  if (!caret) caret = saveCaret(target);
   galPick(async names => {
     const tags = []; for (const n of names) tags.push(await imgTag(n));
     restoreCaret(target, caret); document.execCommand('insertHTML', false, tags.join('')); buzz(6);
-  });
+  }, ctx);
 }
 
 /* ---------------- image IDs typed or pasted into a field ---------------- */
@@ -11247,7 +11291,7 @@ const GAL_ACT = {
     { icon: 'zoom_in', label: 'Larger thumbnails', run: () => galSetCols((Prefs.galCols || 3) - 1) },
     { icon: 'zoom_out', label: 'Smaller thumbnails', run: () => galSetCols((Prefs.galCols || 3) + 1) },
     '-',
-    { icon: 'help', label: 'About image IDs', run: () => openDialog({ icon: 'tag', title: 'Image IDs', body: 'Every image has an ID like <b>IMG-7K3QXA2</b>. Copy it from the viewer and paste it into any field of any card: it turns into the picture. The file is stored once, however many cards show it, and the card stays a normal Anki card.<br><br>You can also tap the gallery button in the note editor to pick images, or long-press a picture while studying to open it here.', actions: [{ label: 'OK', value: true }] }) },
+    { icon: 'help', label: 'About image IDs', run: () => openDialog({ icon: 'tag', title: 'Image IDs', body: 'Every image has an ID like <b>IMG-7K3QXA2</b>. Copy it from the viewer and paste it into any field of any card: it turns into the picture. The file is stored once, however many cards show it, and the card stays a normal Anki card.<br><br>You can also tap the image button beside any field in the note editor to pick images (they go in where the cursor is), or long-press a picture while studying to open it here.', actions: [{ label: 'OK', value: true }] }) },
     { icon: 'cleaning_services', label: 'Clear thumbnail cache', run: async () => { await Thumb.clear(); galRefreshAll(); snack('Thumbnails will be made again as you browse'); } },
   ]),
   'gal-set-menu': (b) => {
