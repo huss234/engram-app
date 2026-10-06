@@ -4690,7 +4690,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.27' };
+const APP = { name: 'Engram', version: '2.1.28' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -4879,6 +4879,8 @@ const Store = {
     let repo = prev && prev.sha1 === sha ? prev.repo || null : null;
     if (!repo) { const same = MediaSync.byShaRepo(sha); if (same) repo = same; }
     const entry = { size: u8.length, sha1: sha, mod: keepMod && prev && prev.mod ? prev.mod : Date.now(), repo };
+    /* when the file first arrived; unlike mod (a sync clock) it never moves */
+    const added = prev && prev.added || (keepMod && prev ? 0 : Date.now()); if (added) entry.added = added;
     const db = await this.open(); const t = db.transaction(['media', 'mmeta', 'mediaq'], 'readwrite');
     t.objectStore('media').put(blob, name);
     t.objectStore('mmeta').put({ name, size: u8.length, atime: Date.now(), sha1: sha });
@@ -10343,6 +10345,9 @@ const Gal = {
         it.nids.push(n.id); if (n.id < it.added) it.added = n.id;
       }
     }
+    /* "added" is when the file arrived, not when its oldest note was made: an image pasted into an older note belongs to today.
+       Files stored before entries carried "added" fall back to their last change if it is later than the note */
+    for (const it of byName.values()) { const e = Col.media.get(it.name); if (e.added) it.added = e.added; else if (e.mod > 1e12 && e.mod > it.added) it.added = e.mod; }
     for (const name of Col.media.keys()) if (this.isImg(name) && !byName.has(name)) byName.set(name, { name, nids: [], added: 0, unused: true });
     const keep = new Map();
     for (const it of byName.values()) {
@@ -10783,7 +10788,7 @@ function galInfo(name, V) {
         <button class="li" data-g="newcard"><span class="lead plain">${ic('note_add')}</span><span class="tx"><span class="t1">New card with this image</span></span></button></div>
       <div class="sec-t" style="margin:20px 0 8px">File</div>
       <div class="group" style="margin:0"><div class="li"><span class="lead plain">${ic('image')}</span><span class="tx"><span class="t1 gi-fn" style="display:block">${esc(name)}</span>
-        <span class="t2" style="display:block">${[e.size ? fmtBytes(e.size) : '', dims ? `${dims[0]} × ${dims[1]}` : '', it.added ? 'First used ' + fmtDate(it.added) : ''].filter(Boolean).join(', ')}</span></span></div></div>`;
+        <span class="t2" style="display:block">${[e.size ? fmtBytes(e.size) : '', dims ? `${dims[0]} × ${dims[1]}` : '', it.added ? 'Added ' + fmtDate(it.added) : ''].filter(Boolean).join(', ')}</span></span></div></div>`;
     const cap = sh.querySelector('#gi-cap');
     const saveCap = () => { const v = cap.value.trim(); if (v === ((GalMeta.get(name) || {}).c || '')) return; GalMeta.set(name, { c: v }); V && V.chrome(); galRefreshAll(); };
     cap.addEventListener('change', saveCap); cap.addEventListener('blur', saveCap);
