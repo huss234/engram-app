@@ -4690,7 +4690,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.28' };
+const APP = { name: 'Engram', version: '2.1.29' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -7597,6 +7597,15 @@ const Back = {
   drop(closeFn) { const i = this.stack.lastIndexOf(closeFn); if (i >= 0) this.stack.splice(i, 1); },
 };
 window.addEventListener('popstate', () => Back.onPop());
+/* an error nothing else caught still says what went wrong, instead of the app silently doing nothing */
+let lastOops = 0;
+function oops(err) {
+  const msg = (err && (err.message || err.reason?.message || err.reason)) || String(err || '');
+  if (!msg || /ResizeObserver loop|^Script error\.?$/i.test(msg) || Date.now() - lastOops < 4000) return;
+  lastOops = Date.now(); console.error(err); snack('Something went wrong: ' + msg, null, null, 6000);
+}
+window.addEventListener('error', e => oops(e.error || e));
+window.addEventListener('unhandledrejection', e => oops(e.reason));
 
 /* ---- snackbar ---- */
 let snackTimer;
@@ -7689,7 +7698,12 @@ function openMenu(anchor, items) {
   const m = wrap.firstElementChild, app = $('#app').getBoundingClientRect(), a = anchor.getBoundingClientRect();
   const mw = m.offsetWidth, mh = m.offsetHeight;
   let left = a.right - app.left - mw, top = a.bottom - app.top + 4;
-  if (left < 8) left = 8; if (top + mh > app.height - 8) { top = a.top - app.top - mh - 4; m.classList.add('up'); }
+  /* a menu taller than the room (a landscape tablet) scrolls inside the room on one side, never over its own button,
+     so tapping the button again still closes it */
+  const below = app.height - 8 - top, above = a.top - app.top - 4 - 8;
+  if (left < 8) left = 8;
+  if (mh > below && above > below) { m.classList.add('up'); m.style.maxHeight = above + 'px'; top = a.top - app.top - 4 - Math.min(mh, above); }
+  else if (mh > below) m.style.maxHeight = below + 'px';
   m.style.left = left + 'px'; m.style.top = Math.max(8, top) + 'px';
   let closed = false;
   const doClose = () => { if (closed) return; closed = true; m.classList.add('out'); setTimeout(() => wrap.remove(), 150); };
