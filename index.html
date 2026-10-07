@@ -4691,7 +4691,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.30' };
+const APP = { name: 'Engram', version: '2.1.31' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8731,15 +8731,51 @@ const Immersive = {
   changed() {
     const pg = topPage('study'), on = Immersive.on();
     if (pg) pg.el.classList.toggle('fs', on);
+    if (pg) paintFullBtn(pg);
     /* leaving with Esc or the system back gesture counts as turning it off */
     if (!on && !Immersive.leaving && pg && !pg.closed && Prefs.studyFullscreen) { Prefs.studyFullscreen = false; savePrefs(); }
     if (!on) Immersive.leaving = false;
     if (pg) setTimeout(() => { try { paintStudyTop(pg); } catch (e) { } }, 60);
   },
 };
+/* the study top bar's own full screen button follows the real state, however it changed (button, F key, Esc, back gesture) */
+function paintFullBtn(pg) {
+  const b = pg.el.querySelector('[data-full]'), on = Immersive.on(); if (!b) return;
+  b.setAttribute('aria-pressed', on); b.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  const m = b.querySelector('.ms'); if (m) morphFullIcon(m, on ? 'fullscreen_exit' : 'fullscreen');
+}
+/* its own quiet morph, in place of the shared spin-swap: the corners push out on the way into full screen and
+   draw in on the way out, no rotation, no colour. It starts from wherever the press left the icon, so nothing
+   snaps, and while it runs the shared swap stands aside (it yields to any animation it doesn't own). */
+function morphFullIcon(m, name) {
+  const st = m._fsMorph;
+  if (st) { st.to = name; return; }
+  if (m.textContent.trim() === name) return;
+  if (reduced() || !m.isConnected) { m.textContent = name; return; }
+  const grow = name === 'fullscreen_exit', cs = getComputedStyle(m);
+  const s0 = parseFloat(cs.scale) || 1, o0 = parseFloat(cs.opacity);
+  m.getAnimations().forEach(a => a.cancel());
+  const me = m._fsMorph = { to: name };
+  const out = m.animate([{ scale: `${s0}`, opacity: isNaN(o0) ? 1 : o0 }, { scale: grow ? '1.22' : '.68', opacity: 0 }],
+    { duration: 110, easing: 'cubic-bezier(.3,0,.8,.15)', fill: 'forwards' });
+  const done = () => {
+    if (m._fsMorph !== me) return;
+    m._fsMorph = null;
+    /* the new glyph's animation starts before the text changes, so the shared swap sees it and stays out */
+    if (m.isConnected) m.animate([{ scale: grow ? '.68' : '1.22', opacity: 0 }, { scale: '1', opacity: 1 }], { duration: 350, easing: 'cubic-bezier(.2,0,0,1)' });
+    m.textContent = me.to; out.cancel();
+  };
+  out.onfinish = done; out.oncancel = done;
+}
 document.addEventListener('fullscreenchange', Immersive.changed);
 document.addEventListener('webkitfullscreenchange', Immersive.changed);
 async function toggleFullscreen(pg, want) {
+  /* a second tap while the browser is still switching would ask twice and read the old state */
+  if (toggleFullscreen.busy) return false;
+  toggleFullscreen.busy = true;
+  try { return await switchFullscreen(pg, want); } finally { setTimeout(() => { toggleFullscreen.busy = false; }, 250); }
+}
+async function switchFullscreen(pg, want) {
   const on = want ?? !Immersive.on();
   if (on && !Immersive.supported()) { snack('Full screen isn’t available in this browser. Add Engram to your home screen to open it without browser bars.'); return false; }
   Prefs.studyFullscreen = on; savePrefs();
@@ -8870,6 +8906,7 @@ function renderStudyShell(el, pg) {
       <span class="st-timer bd-s muted" data-timer></span>
       <button class="st-clock" data-act="st-clock" data-clock aria-label="Pause"${Prefs.sessionClock ? '' : ' hidden'}>${ic('timer')}<span>0:00</span></button>
       <button class="ib" data-act="st-undo" aria-label="Undo">${ic('undo')}</button>
+      ${Immersive.supported() ? `<button class="ib" data-act="st-full" data-full aria-label="${Immersive.on() ? 'Exit full screen' : 'Full screen'}" aria-pressed="${Immersive.on()}">${ic(Immersive.on() ? 'fullscreen_exit' : 'fullscreen')}</button>` : ''}
       <button class="ib" data-act="st-menu" aria-label="More">${ic('more_vert')}</button>
     </div>
     <div class="st-stage" data-stage></div>
@@ -9167,7 +9204,6 @@ function studyMenu(anchor, pg) {
   const n = Col.notes.get(c.nid), marked = n && n.tags.some(t => t.toLowerCase() === 'marked');
   openMenu(anchor, [
     { tiles: [
-      { icon: 'fullscreen', iconOn: 'fullscreen_exit', label: 'Full screen', checked: () => Immersive.on(), run: on => toggleFullscreen(pg, on) },
       { icon: 'contrast', iconOn: 'brightness_1', label: 'Pure black', checked: () => StudyLook.oled(), dim: () => !isDark(),
         run: on => {
           if (!isDark()) { snack('Pure black works with the dark theme', 'Use dark', () => { Prefs.theme = 'dark'; Prefs.studyOled = true; savePrefs(); const go = () => { applyTheme(); StudyLook.apply(pg); }; if (document.startViewTransition && !reduced()) document.startViewTransition(go); else go(); }); return false; }
@@ -13217,6 +13253,12 @@ const ACT = {
   /* study */
   'st-undo': (b) => doUndo(pageOf(b)),
   'st-menu': (b) => studyMenu(b, pageOf(b)),
+  'st-full': async (b) => {
+    /* the icon answers the tap at once; if the browser refuses, it turns back */
+    const pg = pageOf(b), m = b.querySelector('.ms'); if (toggleFullscreen.busy) return;
+    if (m && Immersive.supported()) morphFullIcon(m, Immersive.on() ? 'fullscreen' : 'fullscreen_exit');
+    await toggleFullscreen(pg); paintFullBtn(pg);
+  },
   'st-reveal': (b) => reveal(pageOf(b)),
   'st-grade': (b) => grade(pageOf(b), +b.dataset.g),
   'st-flags': (b) => { const p = pageOf(b); if (p && p.card) openMenu(b, FLAGS.map((f, i) => ({ icon: i ? 'flag' : 'outlined_flag', color: i ? f.c : '', label: f.name, run: () => setFlagCur(p, i) }))); },
