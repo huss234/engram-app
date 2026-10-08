@@ -4691,7 +4691,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.32' };
+const APP = { name: 'Engram', version: '2.1.33' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -8331,6 +8331,7 @@ function todayStudy() {
     n++; t += rtOf(r); if (r.ease === 1) again++;
     if (r.type === 1) { rev++; if (r.ease > 1) correctRev++; }
   }
+  for (const v of Views.list) if (v.id >= start) t += v.ms;
   return { n, t, again, rev, correctRev };
 }
 function countsHtml(n, l, r, always = false) {
@@ -8548,6 +8549,7 @@ const DeckStats = {
         let d = null; if (c.queue === 1) d = 0; else if (c.queue === 2 || c.queue === 3) d = (c.odid ? c.odue : c.due) - today;
         if (d !== null && d < 7) fut[Math.max(0, d)]++;
       }
+      for (const v of Views.of(c.id)) { if (v.id < cut) continue; const x = days[R - 1 - Insights.dOf(v.id, S)]; if (x) x.t += v.ms; }
       const h = Col.revByCid.get(c.id); if (!h) continue;
       let first = true;
       for (const r of h) {
@@ -8929,6 +8931,7 @@ function paintStudyTop(pg, pop = '') {
   cbox.innerHTML = `${counts}${(flag || star) && counts ? '<i class="gap"></i>' : ''}${flag}${star}`;
 }
 async function showCard(pg, card) {
+  Session.leave(pg, card); if (pg.cardFrom == null) pg.cardFrom = Date.now(); pg.pend = true;
   pg.card = card; pg.revealed = false; pg.shownAt = Date.now(); pg.typed = undefined;
   clearTimeout(pg.autoTimer); clearInterval(pg.tick);
   const conf = Col.confForCard(card);
@@ -9003,10 +9006,10 @@ function grade(pg, g) {
   if (!pg.revealed || pg.busy || !pg.card || pg.paused) return;
   pg.busy = true; buzz(g === 1 ? 14 : 7); pg.lastGrade = g;
   const ms = pg.frozenMs ?? (Date.now() - pg.shownAt); pg.frozenMs = undefined;
-  const wasNew = pg.card.type === 0, realMs = Math.max(0, Date.now() - pg.shownAt);
+  const wasNew = pg.card.type === 0, realMs = Math.max(0, Date.now() - (pg.cardFrom ?? pg.shownAt)); pg.cardFrom = Date.now(); pg.pend = false;
   const r = Sched.answer(pg.card, g, ms, pg.sess ? { rt: realMs, sid: pg.sess.id, sa: Session.active(pg) } : { rt: realMs });
   pg.answered++; pg.stats['ahge'[g - 1]]++; pg.stats.t += realMs;
-  Session.answered(pg, g, realMs, wasNew);
+  Session.answered(pg, g, realMs, wasNew, pg.card.id);
   if (r && r.leech) snack(r.leech === 'suspended' ? 'Leech: this card keeps slipping, so it was suspended' : 'Leech: this card keeps slipping. It was tagged “leech”', 'Edit', () => openEditor({ nid: r.card.nid }));
   setTimeout(() => { pg.busy = false; nextCard(pg); }, 40);
 }
@@ -9018,6 +9021,8 @@ function nextCard(pg) {
   finishStudy(pg);
 }
 function waitForLearning(pg, until) {
+  /* no card on screen while waiting: that time is on the session clock but on no card */
+  Session.leave(pg); pg.cardFrom = null;
   pg.card = null; clearInterval(pg.tick);
   const stage = pg.el.querySelector('[data-stage]');
   stage.innerHTML = `<div class="st-card in"><div class="empty" style="margin:auto">${loaderHtml()}<div class="tt-m">Learning cards are waiting</div><div class="bd-m muted">The next one is due at ${new Date(until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. You can wait here or come back later.</div></div></div>`;
@@ -9336,6 +9341,7 @@ const StudyKeys = {
 const kbdHint = (ids, bk, bl) => { const h = StudyKeys.hint(ids, bk, bl); return h ? `<span class="kbd">${esc(h)}</span>` : ''; };
 
 function finishStudy(pg) {
+  Session.leave(pg);
   pg.finished = true; pg.card = null; clearInterval(pg.tick); clearTimeout(pg.autoTimer); Awake.off(); StudyLook.tint(pg);
   if (pg.sess) { if (pg.paused) Session.resume(pg); pg.sess.active = Session.active(pg); pg.stoppedAt = Date.now(); clearInterval(pg.sessTick); pg.sessTick = null; SessionLog.put(pg.sess); }
   pg.el.classList.add('done');
@@ -9385,7 +9391,7 @@ function openCardInfo(cid) {
     ['Added', fmtDate(c.id)], ['First review', rl.length ? fmtDate(rl[rl.length - 1].id) : '—'], ['Latest review', rl.length ? fmtDate(rl[0].id) : '—'],
     ['Due', due], ['Interval', c.type >= 2 ? fmtDays(c.ivl) : '—'], ['Ease', c.factor ? (c.factor / 10) + '%' : '—'],
     ['Reviews', fmtNum(c.reps)], ['Lapses', fmtNum(c.lapses)],
-    ['Average time', rl.length ? fmtSecs(rl.reduce((s, r) => s + (r.rt ?? r.time), 0) / rl.length / 1000) : '—'], ['Total time', rl.length ? fmtDur(rl.reduce((s, r) => s + (r.rt ?? r.time), 0)) : '—'],
+    ['Average time', rl.length ? fmtSecs(rl.reduce((s, r) => s + (r.rt ?? r.time), 0) / rl.length / 1000) : '—'], ['Total time', rl.length || Views.of(cid).length ? fmtDur(rl.reduce((s, r) => s + (r.rt ?? r.time), 0) + Views.of(cid).reduce((s, v) => s + v.ms, 0)) : '—'],
     ...(mem ? [['Stability', mem.s < 1 ? mem.s.toFixed(2) + ' days' : fmtDays(mem.s)], ['Difficulty', Math.round((mem.d - 1) / 9 * 100) + '%']] : []),
     ...(R !== null ? [['Retrievability', Math.round(R * 100) + '%']] : []),
     ['Card type', esc(m.type === 1 ? `Cloze ${c.ord + 1}` : (m.tmpls[c.ord] || {}).name || '')], ['Note type', esc(m.name)], ['Deck', esc(d ? d.name : '') + (home ? ` (from ${esc(home.name)})` : '')],
@@ -12030,7 +12036,7 @@ const SessionLog = {
   parts: [], all: [],
   get list() {
     const c = Col.conf || {}, parts = []; for (const k in c) if (k.startsWith('engramSess_') && Array.isArray(c[k])) parts.push(c[k]);
-    if (parts.length !== this.parts.length || parts.some((p, i) => p !== this.parts[i])) { this.parts = parts; this.all = parts.flat().filter(s => s && s.n > 0).sort((a, b) => a.start - b.start); }
+    if (parts.length !== this.parts.length || parts.some((p, i) => p !== this.parts[i])) { this.parts = parts; this.all = parts.flat().filter(s => s && (s.n > 0 || (s.u && s.u.length))).sort((a, b) => a.start - b.start); }
     return this.all;
   },
   prefix() { return 'engramSess_' + ((Sync.st && Sync.st.deviceId) || 'local') + '_'; },
@@ -12051,6 +12057,7 @@ const SessionLog = {
   },
   write(s) {
     const rec = { id: s.id, start: s.start, end: s.end, active: Math.round(s.active), did: s.did, n: s.n, g: [...s.g], newN: s.newN, t: s.t };
+    if (s.u && s.u.length) rec.u = s.u.map(x => [...x]);
     const k = this.prefix() + monthOf(s.start), arr = (Col.conf[k] || []).filter(x => x.id !== s.id);
     arr.push(rec); arr.sort((a, b) => a.start - b.start); Col.conf[k] = arr;
   },
@@ -12060,7 +12067,7 @@ const SessionLog = {
     for (const k of ks) { if (n <= IX.KEEP) break; const cut = Math.min(n - IX.KEEP, Col.conf[k].length), rest = Col.conf[k].slice(cut); n -= cut; if (rest.length) Col.conf[k] = rest; else delete Col.conf[k]; }
   },
   put(s) {
-    if (!s || !s.n || !Col.conf) return;
+    if (!s || !(s.n || (s.u && s.u.length)) || !Col.conf) return;
     this.write(s); this.trim();
     Insights.bust(); Col.touchMeta();
   },
@@ -12072,6 +12079,17 @@ const SessionLog = {
     }
   },
   save: debounce(() => Store.flush(), 800),
+};
+/* time on cards shown but never graded, from each session row's u: { id: when it was left, cid, ms }, oldest first */
+const Views = {
+  src: null, rows: [], by: new Map(),
+  get list() {
+    const L = SessionLog.list; if (L === this.src) return this.rows;
+    this.src = L; this.rows = L.flatMap(s => (s.u || []).map(([cid, ms, at]) => ({ id: at, cid, ms }))).sort((a, b) => a.id - b.id);
+    this.by = new Map(); for (const v of this.rows) { let a = this.by.get(v.cid); if (!a) this.by.set(v.cid, a = []); a.push(v); }
+    return this.rows;
+  },
+  of(cid) { this.list; return this.by.get(cid) || []; },
 };
 
 /* ---------------- formatting ---------------- */
@@ -12168,12 +12186,18 @@ const Insights = {
       cl.end = r.id; cl.n++; cl.t += rtOf(r); cl.i1 = i; if (r.sa != null && r.sa > cl.sa) cl.sa = r.sa;
       if (r.rt == null) { legacy++; if (r.time >= 30000 && r.time % 1000 === 0) capped++; }
     }
-    /* streaks: today counts once studied; before that, a streak that reached yesterday is still alive */
-    let cur = 0, from = days.get(0) ? 0 : 1; while (days.get(from + cur)) cur++;
-    const ds = [...days.keys()].sort((a, b) => a - b); let best = 0, run = 0, prev = null;
+    for (const w of Views.list) {
+      if (set && !set.has(w.cid)) continue;
+      const d = this.dOf(w.id, S); let x = days.get(d); if (!x) days.set(d, x = { n: 0, t: 0, again: 0, rn: 0, rok: 0 });
+      x.t += w.ms; t += w.ms;
+    }
+    /* streaks: today counts once studied; before that, a streak that reached yesterday is still alive. A day with time but no answer isn't a studied day */
+    const on = d => { const x = days.get(d); return !!(x && x.n); };
+    let cur = 0, from = on(0) ? 0 : 1; while (on(from + cur)) cur++;
+    const ds = [...days.keys()].filter(on).sort((a, b) => a - b); let best = 0, run = 0, prev = null;
     for (const d of ds) { run = prev !== null && d === prev + 1 ? run + 1 : 1; prev = d; if (run > best) best = run; }
     let bestN = null, bestT = null; for (const [d, x] of days) { if (!bestN || x.n > bestN.x.n) bestN = { d, x }; if (!bestT || x.t > bestT.x.t) bestT = { d, x }; }
-    v = { key, S, days, first, n, t, sess, streak: cur, streakAtRisk: cur > 0 && !days.get(0), bestStreak: best, bestN, bestT, activeDays: days.size, set, legacy, capped };
+    v = { key, S, days, first, n, t, sess, streak: cur, streakAtRisk: cur > 0 && !on(0), bestStreak: best, bestN, bestT, activeDays: ds.length, set, legacy, capped };
     this.cache.set(key, v); return v;
   },
 
@@ -12190,7 +12214,9 @@ const Insights = {
       while (k < loc.length && loc[k].start <= c.end + MIN) { if (loc[k].end >= c.start - MIN) { active += loc[k].active; did = did || loc[k].did; hit = true; } k++; }
       out.push({ start: c.start, end: c.end, n: c.n, t: c.t, i0: c.i0, i1: c.i1, clock: hit ? active : 0, did, dur: hit && active > 0 ? active : c.t });
     }
-    return out;
+    /* sessions closed without a single grade still took time */
+    for (const x of loc) if (!x.n && x.end >= fromMs && (!A.set || (x.u || []).some(([cid]) => A.set.has(cid)))) out.push({ start: x.start, end: x.end, n: 0, t: 0, i0: 0, i1: -1, clock: x.active, did: x.did, dur: x.active });
+    return out.sort((a, b) => a.start - b.start);
   },
   sessionDeck(s, top) {
     if (s.did && Col.decks[s.did]) return Col.decks[s.did];
@@ -12224,6 +12250,14 @@ const Insights = {
       if (r.type === 0) { const h0 = Col.revByCid.get(r.cid); if (h0 && h0[0] === r) newN++; }
       if (r.ivl >= 21 && r.lastIvl < 21) matured++;
       if (r.rt == null) { legacy++; if (r.time >= 30000 && r.time % 1000 === 0) capped++; }
+    }
+    for (const w of Views.list) {
+      if (w.id < pcut || (set && !set.has(w.cid))) continue;
+      if (w.id < cut) { prev.t += w.ms; continue; }
+      const x = days[R - 1 - this.dOf(w.id, S)]; if (!x) continue;
+      x.t += w.ms; t += w.ms; hours[new Date(w.id).getHours()].t += w.ms;
+      const td = top(w.cid); let dk = decks.get(td); if (!dk) decks.set(td, dk = { n: 0, t: 0, again: 0 }); dk.t += w.ms;
+      let ck = cards.get(w.cid); if (!ck) cards.set(w.cid, ck = { n: 0, t: 0, again: 0 }); ck.t += w.ms;
     }
     const wd = Array.from({ length: 7 }, () => ({ t: 0, n: 0, days: 0 }));
     days.forEach((x, i) => { const w = new Date(S - (R - 1 - i) * DAY + 12 * HOUR).getDay(); wd[w].t += x.t; wd[w].n += x.n; wd[w].days++; });
@@ -12510,7 +12544,7 @@ function renderInsights(host) {
   /* time sinks */
   const sinks = [...g.cards.entries()].filter(([cid]) => Col.cards.has(cid)).sort((a, b) => b[1].t - a[1].t).slice(0, 5);
   const sinkSec = sinks.length >= 3 ? `<section class="ix-sec" style="--i:10"><div class="sec-t">Cards that took the longest</div>
-    <div class="group">${sinks.map(([cid, x], k) => { const c = Col.cards.get(cid), n = Col.notes.get(c.nid); return li({ lead: `<span class="lead ix-sinkn">${k + 1}</span>`, t1: esc(n ? rowText(n) || '(empty)' : '(missing note)'), t2: `${fmtDur(x.t)} over ${plural(x.n, 'review')}${x.again ? `, Again ${x.again}×` : ''}`, act: 'ix-card', data: { id: cid }, trail: ic('chevron_right') }); }).join('')}</div>
+    <div class="group">${sinks.map(([cid, x], k) => { const c = Col.cards.get(cid), n = Col.notes.get(c.nid); return li({ lead: `<span class="lead ix-sinkn">${k + 1}</span>`, t1: esc(n ? rowText(n) || '(empty)' : '(missing note)'), t2: `${fmtDur(x.t)}${x.n ? ` over ${plural(x.n, 'review')}` : ', never graded'}${x.again ? `, Again ${x.again}×` : ''}`, act: 'ix-card', data: { id: cid }, trail: ic('chevron_right') }); }).join('')}</div>
     <div class="bd-s muted ix-foot">Cards that keep costing time are good candidates to rewrite or split.</div></section>` : '';
   /* records */
   const recs = [
@@ -12539,10 +12573,12 @@ function openIxDay(d) {
     const last = cl[cl.length - 1], brk = !last || (r.sid != null ? r.sid !== last.sid : (last.sid != null || r.id - last.end > IX.GAP));
     if (brk) cl.push({ start: r.sid != null ? r.sid : r.id - rtOf(r), end: r.id, n: 1, t: rtOf(r), sid: r.sid != null ? r.sid : null, sa: r.sa || 0 }); else { last.end = r.id; last.n++; last.t += rtOf(r); if (r.sa > last.sa) last.sa = r.sa; }
   }
+  for (const v of Views.list) { if (v.id < from || v.id >= to || (set && !set.has(v.cid))) continue; t += v.ms; const td = top(v.cid); let x = decks.get(td); if (!x) decks.set(td, x = { n: 0, t: 0 }); x.t += v.ms; }
   const loc = SessionLog.list.filter(s => s.end >= from && s.start < to);
+  for (const x of loc) if (!x.n) cl.push({ start: x.start, end: x.end, n: 0, t: 0, sid: x.id, sa: x.active }); cl.sort((a, b) => a.start - b.start);
   const title = new Date(from + 12 * HOUR).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const f = goalFrac({ n, t });
-  const body = !n ? `<div class="empty">${ic('bedtime', 'lg')}<div class="bd-m muted">No reviews on this day.</div></div>` : `
+  const body = !n && !t ? `<div class="empty">${ic('bedtime', 'lg')}<div class="bd-m muted">No reviews on this day.</div></div>` : `
     <div class="ix-daygoal ${f >= 1 ? 'met' : ''}"><span class="shp" style="--c:${f >= 1 ? 150 : 265}">${shapeSvg(f >= 1 ? 4 : 0)}${ic(f >= 1 ? 'flag' : 'outlined_flag', 'fill')}</span>
       <span class="bd-m">${f >= 1 ? 'Daily goal met' : `${Math.round(f * 100)}% of the daily goal`}<span class="muted"> · ${goalProgressText({ n, t })}</span></span></div>
     <div class="tiles" style="margin:12px 0 0">
@@ -12601,7 +12637,7 @@ function momentumHtml(tn, tl, tr) {
     return `<span class="mo-d ${v ? 'on' : ''} ${g >= 1 ? 'goal' : ''} ${d === 0 ? 'today' : ''}" style="--f:${Math.min(1, g).toFixed(3)}" title="${esc(relDay(d))}: ${v ? `${plural(v.n, 'card')}, ${fmtDur(v.t)}` : 'no reviews'}">${g >= 1 ? shapeSvg(4, 32) : ''}<i></i><em>${esc(lab)}</em></span>`; }).join('');
   let msg;
   if (!A.n) msg = 'Your first review starts a streak.';
-  else if (!today && A.streak) msg = `Study today to keep your ${A.streak}-day streak going.`;
+  else if (!(today && today.n) && A.streak) msg = `Study today to keep your ${A.streak}-day streak going.`;
   else if (!today) msg = A.days.size ? 'A few cards today starts a new streak.' : 'Your first review starts a streak.';
   else if (f >= 1) msg = tn + tl + tr ? 'Daily goal reached. Everything else today is a bonus.' : 'Daily goal reached and every card done. Well earned.';
   else msg = `${goalLeftText(today)} to go for today’s goal.`;
@@ -12657,7 +12693,8 @@ function renderStats(el) {
 const Session = {
   begin(pg, did) {
     const now = Date.now();
-    pg.sess = { id: now, start: now, end: now, active: 0, did: +did, n: 0, g: [0, 0, 0, 0], newN: 0, t: 0 };
+    pg.sess = { id: now, start: now, end: now, active: 0, did: +did, n: 0, g: [0, 0, 0, 0], newN: 0, t: 0, u: [] };
+    pg.cardFrom = now; pg.pend = false;
     pg.pausedMs = 0; pg.paused = false; pg.stoppedAt = 0; pg.sessHist = [];
     pg.sessTick = setInterval(() => Session.tick(pg), 1000);
     pg.onVis = () => { if (document.hidden) Session.save(pg); Session.paint(pg); };
@@ -12670,12 +12707,21 @@ const Session = {
     return Math.max(0, now - s.start - pg.pausedMs);
   },
   tick(pg) { if (pg.sess) pg.sess.active = this.active(pg); this.paint(pg); },
+  /* a card's time runs from when the one before it was left (its gap and render included) to its grade, minus pauses */
+  cardMs(pg) { return pg.cardFrom == null ? 0 : Math.max(0, (pg.stoppedAt || (pg.paused ? pg.pausedAt : Date.now())) - pg.cardFrom); },
+  /* a card left without a grade (buried, suspended, skipped, open at close) keeps its time, as [cid, ms, at] in the session's u */
+  leave(pg, next) {
+    const c = pg.card; if (!pg.sess || !pg.pend || !c || (next && next.id === c.id)) return;
+    pg.sess.u.push([c.id, Math.round(this.cardMs(pg)), Date.now()]); pg.pend = false; pg.cardFrom = Date.now();
+  },
   /* the log row is otherwise written only at each answer: closing (or the app going to the background, where it may be killed)
      records the clock as it stands, so the time on the last unanswered card isn't lost */
   save(pg) {
-    const s = pg.sess; if (!s || !s.n) return;
+    const s = pg.sess; if (!s) return;
     s.active = this.active(pg); s.end = Math.max(s.end, pg.stoppedAt || (pg.paused ? pg.pausedAt : Date.now()));
-    SessionLog.put(s); SessionLog.save.now();
+    /* the card still on screen counts as it stands, without being committed (the session may go on) */
+    const open = pg.pend && pg.card ? [[pg.card.id, Math.round(this.cardMs(pg)), Date.now()]] : [];
+    SessionLog.put(open.length ? { ...s, u: [...s.u, ...open] } : s); SessionLog.save.now();
   },
   paint(pg) {
     const b = pg.el.querySelector('[data-clock]'); if (!b || !pg.sess) return;
@@ -12686,16 +12732,18 @@ const Session = {
     b.setAttribute('aria-label', pg.paused ? `Paused at ${fmtClock(t)}. Resume` : `Session time ${fmtClock(t)}. Pause`);
     const pv = pg.el.querySelector('[data-pclock]'); if (pv) pv.textContent = fmtClock(t);
   },
-  answered(pg, g, ms, wasNew) {
+  answered(pg, g, ms, wasNew, cid) {
     const s = pg.sess; if (!s) return;
     s.n++; s.g[g - 1]++; s.t += ms; if (wasNew) s.newN++; s.end = Date.now(); s.active = this.active(pg);
-    pg.sessHist.push([g, ms, wasNew]); SessionLog.put(s);
+    pg.sessHist.push([g, ms, wasNew, cid]); SessionLog.put(s);
   },
   undone(pg) {
     const s = pg.sess, h = pg.sessHist && pg.sessHist.pop(); if (!s || !h) return;
     s.n = Math.max(0, s.n - 1); s.g[h[0] - 1] = Math.max(0, s.g[h[0] - 1] - 1); s.t = Math.max(0, s.t - h[1]); if (h[2]) s.newN = Math.max(0, s.newN - 1);
-    if (s.n) SessionLog.put(s); else SessionLog.drop(s.id);
-    if (pg.stoppedAt) { pg.pausedMs += Date.now() - pg.stoppedAt; pg.stoppedAt = 0; }
+    /* the undone answer's row is gone, but the card was still on screen that long */
+    if (h[3] != null) s.u.push([h[3], h[1], Date.now()]);
+    if (s.n || s.u.length) SessionLog.put(s); else SessionLog.drop(s.id);
+    if (pg.stoppedAt) { const gap = Date.now() - pg.stoppedAt; pg.pausedMs += gap; if (pg.cardFrom != null) pg.cardFrom += gap; pg.stoppedAt = 0; }
     if (!pg.sessTick) pg.sessTick = setInterval(() => Session.tick(pg), 1000);
   },
   pause(pg) {
@@ -12716,7 +12764,7 @@ const Session = {
   },
   resume(pg) {
     if (!pg.paused) return;
-    const gap = Date.now() - pg.pausedAt; pg.paused = false; pg.shownAt += gap; pg.pausedMs += gap; buzz(6);
+    const gap = Date.now() - pg.pausedAt; pg.paused = false; pg.shownAt += gap; pg.pausedMs += gap; if (pg.cardFrom != null) pg.cardFrom += gap; buzz(6);
     pg.el.classList.remove('paused');
     const ov = pg.el.querySelector('.st-pause'); if (ov) { ov.classList.add('out'); setTimeout(() => ov.remove(), 220); }
     this.paint(pg);
@@ -12734,7 +12782,7 @@ const Session = {
     if (!pg.sess) return;
     clearInterval(pg.sessTick); pg.sessTick = null;
     document.removeEventListener('visibilitychange', pg.onVis);
-    this.save(pg);
+    this.leave(pg); this.save(pg);
   },
 };
 
