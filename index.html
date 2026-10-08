@@ -4691,7 +4691,7 @@ if (typeof module !== 'undefined') module.exports = { AnkiIO };
      cloud    GitHub client, sync engine, media queue (engram-data + engram-media-NN)
      app      storage (IndexedDB), UI kit, screens, actions
    ===================================================================== */
-const APP = { name: 'Engram', version: '2.1.31' };
+const APP = { name: 'Engram', version: '2.1.32' };
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -12179,11 +12179,12 @@ const Insights = {
 
   /* sessions: review clusters from the revlog, with the device's own clock where it has one */
   sessions(A, fromMs) {
-    const loc = SessionLog.list, out = [];
+    const loc = SessionLog.list, out = [], byId = new Map(loc.map(x => [x.id, x]));
     let j = 0;
     for (const c of A.sess) {
       if (c.end < fromMs) continue;
-      if (c.sa) { out.push({ start: c.start, end: c.end, n: c.n, t: c.t, i0: c.i0, i1: c.i1, clock: c.sa, did: 0, dur: Math.max(c.sa, c.t) }); continue; }
+      /* r.sa is the clock at the last answer; the session's own log row also has the time after it, up to closing */
+      if (c.sa) { const rec = byId.get(c.sid), clock = Math.max(c.sa, rec ? rec.active : 0); out.push({ start: c.start, end: rec ? Math.max(c.end, rec.end) : c.end, n: c.n, t: c.t, i0: c.i0, i1: c.i1, clock, did: 0, dur: Math.max(clock, c.t) }); continue; }
       while (j < loc.length && loc[j].end < c.start - MIN) j++;
       let active = 0, did = 0, k = j, hit = false;
       while (k < loc.length && loc[k].start <= c.end + MIN) { if (loc[k].end >= c.start - MIN) { active += loc[k].active; did = did || loc[k].did; hit = true; } k++; }
@@ -12552,7 +12553,7 @@ function openIxDay(d) {
     <div class="sec-t" style="margin:20px 0 8px">Decks</div>
     <div class="infotable">${[...decks.entries()].sort((a, b) => b[1].t - a[1].t).map(([id, x]) => `<div><span>${esc(Col.decks[id] ? Col.decks[id].name : 'Deleted cards')}</span><span>${fmtDur(x.t)} · ${plural(x.n, 'card')}</span></div>`).join('')}</div>
     <div class="sec-t" style="margin:20px 0 8px">Sessions</div>
-    <div class="infotable">${cl.map(s => { const lc = loc.filter(x => x.end >= s.start - MIN && x.start <= s.end + MIN), clock = s.sa || lc.reduce((a, x) => a + x.active, 0); return `<div><span>${clockTime(s.start)} – ${clockTime(s.end)}</span><span>${plural(s.n, 'card')} · ${fmtDur(clock || s.t)}${clock ? ' on the clock' : ''}</span></div>`; }).join('')}</div>`;
+    <div class="infotable">${cl.map(s => { const lc = loc.filter(x => x.end >= s.start - MIN && x.start <= s.end + MIN), rec = s.sa ? loc.find(x => x.id === s.sid) : null, clock = s.sa ? Math.max(s.sa, rec ? rec.active : 0) : lc.reduce((a, x) => a + x.active, 0), end = rec ? Math.max(s.end, rec.end) : s.end; return `<div><span>${clockTime(s.start)} – ${clockTime(end)}</span><span>${plural(s.n, 'card')} · ${fmtDur(clock || s.t)}${clock ? ' on the clock' : ''}</span></div>`; }).join('')}</div>`;
   openSheet({ title, body });
 }
 
@@ -12659,7 +12660,7 @@ const Session = {
     pg.sess = { id: now, start: now, end: now, active: 0, did: +did, n: 0, g: [0, 0, 0, 0], newN: 0, t: 0 };
     pg.pausedMs = 0; pg.paused = false; pg.stoppedAt = 0; pg.sessHist = [];
     pg.sessTick = setInterval(() => Session.tick(pg), 1000);
-    pg.onVis = () => Session.paint(pg);
+    pg.onVis = () => { if (document.hidden) Session.save(pg); Session.paint(pg); };
     document.addEventListener('visibilitychange', pg.onVis);
   },
   /* wall clock since the session began, minus only the time you paused it yourself */
@@ -12669,6 +12670,13 @@ const Session = {
     return Math.max(0, now - s.start - pg.pausedMs);
   },
   tick(pg) { if (pg.sess) pg.sess.active = this.active(pg); this.paint(pg); },
+  /* the log row is otherwise written only at each answer: closing (or the app going to the background, where it may be killed)
+     records the clock as it stands, so the time on the last unanswered card isn't lost */
+  save(pg) {
+    const s = pg.sess; if (!s || !s.n) return;
+    s.active = this.active(pg); s.end = Math.max(s.end, pg.stoppedAt || (pg.paused ? pg.pausedAt : Date.now()));
+    SessionLog.put(s); SessionLog.save.now();
+  },
   paint(pg) {
     const b = pg.el.querySelector('[data-clock]'); if (!b || !pg.sess) return;
     const t = this.active(pg);
@@ -12726,7 +12734,7 @@ const Session = {
     if (!pg.sess) return;
     clearInterval(pg.sessTick); pg.sessTick = null;
     document.removeEventListener('visibilitychange', pg.onVis);
-    if (pg.sess.n) { SessionLog.put(pg.sess); SessionLog.save.now(); }
+    this.save(pg);
   },
 };
 
